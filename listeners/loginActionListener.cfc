@@ -61,6 +61,7 @@
 						<cflock timeout="30" type="exclusive" >
 							<cfset SessionRotate()>
 							<cfset SESSION.uid = #nmLoginActivity.uid#>
+							<cfset SESSION.Name = #nmLoginActivity.Name#>
 						</cflock>
 					<cfelse>
 						<cfset VARIABLES.errorFlag = "Suspicious login detected">			
@@ -75,14 +76,12 @@
 			<cfset arguments.event.setArg("response",VARIABLES.errorFlag)>
 			<cfset announceEvent("failed",arguments.event.getArgs())>
 		<cfelse>
-			<cfset arguments.event.setArg("Name" , nmLoginActivity.Name)>
 			<cfset arguments.event.setArg("response","Login was sucessful")>
-			<cfset announceEvent("userPublicPage",arguments.event.getArgs())>
+			<cfset announceEvent("publicPage",arguments.event.getArgs())>
 		</cfif>
 	<cfelse>
-		<cfset arguments.event.setArg("Name" , nmLoginActivity.Name)>
 		<cfset arguments.event.setArg("response","You have already logged in")>
-		<cfset announceEvent("userPublicPage",arguments.event.getArgs())>
+		<cfset announceEvent("publicPage",arguments.event.getArgs())>
 	</cfif>
 	</cffunction>
 

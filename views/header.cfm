@@ -1,10 +1,10 @@
 <div class="header">
 	<div class="header-left">
-		<h1> Logo</h1>
+		<h1> <a href="index.cfm?event=publicPage">The Art Gallery</a></h1>
 	</div>
 	<div class="header-right"> 
 		<cfoutput>
-			<cfif event.isArgDefined("logoutContent")>
+			<cfif StructKeyExists(Session,"uid")>
 				#event.getArg("logoutContent")#
 			<cfelse>
 				#event.getArg("loginForm")#

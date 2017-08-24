@@ -26,7 +26,7 @@ div.gallery {
     border: 1px solid #ccc;
 	width:-moz-min-content;
     display:inline-block;
-
+	height:auto;
 }
 
 div.gallery:hover {

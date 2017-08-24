@@ -24,21 +24,25 @@
 		<p>User #event.getArg("callee")# Failed</p>
 	</cfoutput>
 </cfif>s in a box format--->
-<p>Welcome to this page.Have a look at our art gallery</p>
+<p>Welcome Artists and Art Lovers.Have a look at our art gallery.</p>
 
 <div class="paintings">
-	<div class="gallery">
-	  <a href="#">
-	    <img src="/img/machiiLogo.gif" alt="Forest" width="166" height="170">
-	  </a>
-	  <div class="desc"><a href="#">BatMan</a></div>
-	</div>
-	<div class="gallery">
-	  <a href="#">
-	    <img src="/img/machiiLogo.gif" alt="Forest" width="166" height="170">
-	  </a>
-	  <div class="desc"><a href="#">SuperMan</a></div>
-	</div>
+	<cfloop query="#event.getArg("paintings")#">
+		<cfoutput >
+			<div class="gallery">
+			  <a href="##">
+				<img src="/img/#PictureLocation#" alt="#PictureName#" width="166px" height="170px">
+		 	  </a>
+			  <div class="desc">
+			  	<a href="index.cfm?event=showPublicProfile&uid=#uid#">
+			  		#Name#
+			  	</a>
+				<div class="public-box">
+				</div>		
+			  </div>
+			</div>
+		</cfoutput>
+	</cfloop>
 </div>
 
 <br>

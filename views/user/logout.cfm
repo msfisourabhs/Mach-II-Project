@@ -1,7 +1,9 @@
 ﻿<h4>
 	Welcome	
-	<cfoutput>
-		#event.getArg("Name")#
-	</cfoutput>
+	<cfif StructKeyExists(Session,"name")>
+		<cfoutput>
+			<a href="index.cfm?event=userProfile">#Session.name#</a>
+		</cfoutput>
+	</cfif>
 	| <a href="index.cfm?event=logoutAction">Sign Out</a>
 </h4>

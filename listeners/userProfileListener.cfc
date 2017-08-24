@@ -25,13 +25,13 @@
 		hint="I am a boilerplate function">
 		<cfargument name="event" type="MachII.framework.Event" required="true" />
 		<cfif StructKeyExists(session,"uid")>
-			<cfif event.isArgDefined("uid")>
+			<cfif event.isArgDefined("uid") AND getParameter("callee") EQ "public">
 				<cfset local.uid = event.getArg("uid")>
 			<cfelse>
 				<cfset local.uid = Session.uid>
 			</cfif>
 		<cfelse>
-			<cfset local.uid = arguments.getArg("uid")>
+			<cfset local.uid = arguments.event.getArg("uid")>
 		</cfif>
 			<cfquery name = "fetchUserData" datasource="Mach2DS">
 				SELECT Name,Email,Phone,About,City,Country

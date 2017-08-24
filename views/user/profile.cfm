@@ -7,12 +7,12 @@
 		<img src="/img/#event.getArg("userPictures").pictureLocation#"	alt=#event.getArg("userPictures").pictureName# width="166px" height="170px">
 		<cfif event.getArg("display") EQ "private">
 			<cfoutput>
-				<button id="updatePicturePopup" style="width:75%" onclick="updateFileIdentifier(this)"><label class="uploadbttn">Upload Profile Picture</label></button>
+				<button id="updatePicturePopup" style="width:50%" onclick="updateFileIdentifier(this)"><label class="uploadbttn">Upload Profile Picture</label></button>
 			</cfoutput>
 		</cfif>
 		#event.getArg("updatePicture")#
 	</div>
-	<div class="profile-description" style="display:inline-block;float:right"> 
+	<div class="profile-description" style="display:inline-block;width:75%;padding-left:140px"> 
 		<div class="profile-meta" style="display:inline-block;">
 			<h3>#event.getArg("user").name#<h3>
 			<h5>#event.getArg("user").city#,#event.getArg("user").country#</h5>
