@@ -1,4 +1,9 @@
-﻿<h4>
+﻿<!----	
+	Filename 		:	logout.cfm 
+ 	Functionality	:	Displays user name of logged in user and a logout button
+ 	Creation Date	:	August ‎11, ‎2017, ‏‎2:42:59 PM
+---->
+<h4>
 	Welcome	
 	<cfif StructKeyExists(Session,"name")>
 		<cfoutput>

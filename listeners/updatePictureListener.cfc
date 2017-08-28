@@ -1,5 +1,11 @@
-﻿<cfcomponent
-	displayname="SampleListener"
+﻿<!----	
+	Filename 		:	updatePictureListener.cfc 
+ 	Functionality	:	Listnes for update picture events and updates user paintings/picture
+ 						It updates user data in DB.
+ 	Creation Date	:	August ‎23, ‎2017, ‏‎2:42:59 PM
+---->
+<cfcomponent
+	displayname="updatePictureListener"
 	extends="MachII.framework.Listener"
 	output="false"
 	hint="update picture attempt listener "
@@ -21,18 +27,18 @@
 	<!---
 	PUBLIC FUNCTIONS
 	--->
-	<cffunction name="updatePicture" output="true" access="public" returntype="void"
-		hint="I am a boilerplate function">
+	<cffunction name="updatePicture" output="false" access="public" returntype="void"
+		hint="function updates profile information by adding new paintings/pictures">
 		<cfargument name="event" type="MachII.framework.Event" required="true" />
 		
-		<cfset local.pictureType = arguments.event.getArg("fileIdentifier").Split("_")[2]>
-		<cfset local.fileIdentifier = arguments.event.getArg("fileIdentifier").Split("_")[1]>
-		<cfif local.pictureType EQ "userpicture">
+		<cfset LOCAL.pictureType = ARGUMENTS.event.getArg("fileIdentifier").Split("_")[2]>
+		<cfset LOCAL.fileIdentifier = ARGUMENTS.event.getArg("fileIdentifier").Split("_")[1]>
+		<cfif LOCAL.pictureType EQ "userpicture">
 			<!---Grab the file location for the older file--->
 			<cfquery datasource="Mach2DS" name="fetchFileName">
 				SELECT PictureLocation,PictureName
 					FROM dbo.User_Pictures
-				WHERE pid = <cfqueryparam cfsqltype="cf_sql_integer" value="#local.fileIdentifier#" null="false" maxlength="5">
+				WHERE pid = <cfqueryparam cfsqltype="cf_sql_integer" value="#LOCAL.fileIdentifier#" null="false" maxlength="5">
 			</cfquery>
 			<!---Delete the older file--->
 			<cfif fetchFileName.PictureName NEQ "unknown-user"> 
@@ -43,26 +49,26 @@
 			<cfquery datasource="Mach2DS" >
 				UPDATE dbo.User_Pictures
 				SET 
-					PictureName = '#event.getArg("fileInfo").serverfilename#' ,
-					PictureLocation = 'uploads/#event.getArg("fileInfo").serverfile#' 
+					PictureName = '#ARGUMENTS.event.getArg("fileInfo").serverfilename#' ,
+					PictureLocation = 'uploads/#ARGUMENTS.event.getArg("fileInfo").serverfile#' 
 				WHERE 
-					uid = #Session.uid# 
+					uid = #SESSION.uid# 
 					AND
-					pid = <cfqueryparam cfsqltype="cf_sql_integer" value=#local.fileIdentifier# null="false" maxlength="5">
+					pid = <cfqueryparam cfsqltype="cf_sql_integer" value=#LOCAL.fileIdentifier# null="false" maxlength="5">
 			</cfquery>
 		<cfelse>
 			<cfquery datasource="Mach2DS">
 				INSERT INTO dbo.User_Pictures
 					(uid,PictureName,PictureLocation,isPublic,TypeID)
 				VALUES
-					(#Session.uid#,
-					<cfqueryparam cfsqltype="cf_sql_varchar" value=#event.getArg("fileInfo").serverfilename# null="false" maxlength="100">,
-					<cfqueryparam cfsqltype="cf_sql_varchar" value="uploads/#event.getArg("fileInfo").serverfile#" null="false" maxlength="150">,
+					(#SESSION.uid#,
+					<cfqueryparam cfsqltype="cf_sql_varchar" value=#ARGUMENTS.event.getArg("fileInfo").serverfilename# null="false" maxlength="100">,
+					<cfqueryparam cfsqltype="cf_sql_varchar" value="uploads/#ARGUMENTS.event.getArg("fileInfo").serverfile#" null="false" maxlength="150">,
 					0,2)
 			</cfquery>
 		</cfif>
 		<!---Move the new file--->
-		<cfset fileMove("#getTempDirectory()##event.getArg("fileInfo").serverFile#","C:\ColdFusion10\cfusion\wwwroot\Projects\Mach2\img\uploads\")>
+		<cfset fileMove("#getTempDirectory()##ARGUMENTS.event.getArg("fileInfo").serverFile#","C:\ColdFusion10\cfusion\wwwroot\Projects\Mach2\img\uploads\")>
 		
 			
 	</cffunction>

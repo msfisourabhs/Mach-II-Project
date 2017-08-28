@@ -1,8 +1,15 @@
-﻿<cfcomponent
-	displayname="SampleListener"
+﻿<!----	
+	Filename 		:	logoutActionListener.cfc 
+ 	Functionality	:	Listens for logout events and de-authenticates user by clearing
+ 						session structure  and SessionInvalidate.
+ 	Creation Date	:	August ‎22, ‎2017, ‏‎2:42:59 PM
+---->
+
+<cfcomponent
+	displayname="logoutActionListener"
 	extends="MachII.framework.Listener"
 	output="false"
-	hint="login attempt listener "
+	hint="logout attempt listener "
 	>
 
 	<!---
@@ -21,19 +28,22 @@
 	<!---
 	PUBLIC FUNCTIONS
 	--->
-	<cffunction name="doLogout" output="true" access="public" returntype="void"
-		hint="I am a boilerplate function">
+	<cffunction name="doLogout" output="false" access="public" returntype="void"
+		hint="function deauthenticates user">
 		<cfargument name="event" type="MachII.framework.Event" required="true" />
+			<!---set isActive flag to inactive--->
 			<cfif StructKeyExists(session,"uid")>
 				<cfquery datasource="Mach2DS">
 					UPDATE dbo.User_Details
 					SET isActive = 0
-					WHERE uid = #Session.uid#
+					WHERE uid = #SESSION.uid#
 				</cfquery>
-				<cfset StructClear(session)>
+				<!---Logout the user--->
+				<cfset StructClear(SESSION)>
 				<cfset Sessioninvalidate()>
 			<cfelse>
-				<cfset arguments.event.setArg("response","Your session has timed out")>
+				<!---Set error flag --->
+				<cfset ARGUMENTS.event.setArg("response","Your session has timed out")>
 			</cfif>
 	</cffunction>
 </cfcomponent>

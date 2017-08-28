@@ -1,10 +1,9 @@
+<!----	
+	Filename 		:	public.cfm 
+ 	Functionality	:	View page for all the public paintings
+ 	Creation Date	:	August ‎11, ‎2017, ‏‎2:42:59 PM
+---->
 
-<!---Display all the public painting
-	<cfif event.isArgDefined("callee")>
-	<cfoutput>
-		<p>User #event.getArg("callee")# Failed</p>
-	</cfoutput>
-</cfif>s in a box format--->
 <p>Welcome Artists and Art Lovers.Have a look at our art gallery.</p>
 
 <div class="paintings">

@@ -132,7 +132,7 @@
 			<notify listener="loginActionListener" method="doLogin"/>
 		</event-handler>
 		<event-handler event="failed" access="private">
-			<redirect event="publicPage" persist="true"/>
+			<redirect event="publicPage"/>
 		</event-handler>
 		<event-handler event="logoutAction" access="public">
 			<filter name="isLoggedInFilter">
@@ -166,6 +166,7 @@
 			<filter name="updatePictureFilter">
 			</filter>
 			<notify listener="updatePictureListener" method="updatePicture"/>
+			<redirect event="userProfile"/>
 		</event-handler>
 		<event-handler event="makePaintingsPublic" access="public">
 			<filter name="isLoggedInFilter">

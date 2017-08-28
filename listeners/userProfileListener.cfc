@@ -1,8 +1,14 @@
-﻿<cfcomponent
-	displayname="SampleListener"
+﻿<!----	
+	Filename 		:	loginActionListener.cfc 
+ 	Functionality	:	Listnes for user profile display to public/private users.
+ 						and fetches user data.
+ 	Creation Date	:	August ‎22, ‎2017, ‏‎2:42:59 PM
+---->
+<cfcomponent
+	displayname="userProfileListener"
 	extends="MachII.framework.Listener"
 	output="false"
-	hint="update attempt listener "
+	hint="user profile public/private listener "
 	>
 
 	<!---
@@ -21,18 +27,18 @@
 	<!---
 	PUBLIC FUNCTIONS
 	--->
-	<cffunction name="fetchUserDetails" output="true" access="public" returntype="void"
-		hint="I am a boilerplate function">
+	<cffunction name="fetchUserDetails" output="false" access="public" returntype="void"
+		hint="function fetches registered user data to public/private events">
 		<cfargument name="event" type="MachII.framework.Event" required="true" />
-		<cfif StructKeyExists(session,"uid")>
+		<cfif StructKeyExists(SESSION,"uid")>
 			<cfif event.isArgDefined("uid") AND getParameter("callee") EQ "public">
-				<cfset local.uid = event.getArg("uid")>
+				<cfset LOCAL.uid = event.getArg("uid")>
 			<cfelse>
-				<cfset local.uid = Session.uid>
+				<cfset LOCAL.uid = SESSION.uid>
 			</cfif>
 		<cfelse>
-			<cfif event.isArgDefined("uid")>
-				<cfset local.uid = arguments.event.getArg("uid")>
+			<cfif ARGUMETS.event.isArgDefined("uid")>
+				<cfset LOCAL.uid = ARGUMENTS.event.getArg("uid")>
 			<cfelse>
 				<cfset VARIABLES.errorFlag = "You are not authorised to view this page">
 			</cfif>	
@@ -72,14 +78,14 @@
 						TypeID = 2
 				</cfquery>
 			</cfif>
-			<cfset arguments.event.setArg("display",getParameter("callee"))>
-			<cfset arguments.event.setArg("user" , fetchUserData)>
-			<cfset arguments.event.setArg("userPictures" , fetchUserPicture)>
-			<cfset arguments.event.setArg("userPaintings" ,fetchUserPaintings)>
+			<cfset ARGUMENTS.event.setArg("display",getParameter("callee"))>
+			<cfset ARGUMENTS.event.setArg("user" , fetchUserData)>
+			<cfset ARGUMENTS.event.setArg("userPictures" , fetchUserPicture)>
+			<cfset ARGUMENTS.event.setArg("userPaintings" ,fetchUserPaintings)>
 		
 		<cfcatch type="any">
-			<cfset arguments.event.setArg("response",VARIABLES.errorFlag)>
-			<cfset announceEvent("error",arguments.event.getArgs())>
+			<cfset ARGUMENTS.event.setArg("response",VARIABLES.errorFlag)>
+			<cfset announceEvent("error",ARGUMENTS.event.getArgs())>
 		</cfcatch>
 		</cftry>
 		

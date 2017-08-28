@@ -1,4 +1,9 @@
-﻿<a href="##" id="updateProfilePopup">Edit Profile</a>
+﻿<!----	
+	Filename 		:	updateProfile.cfm 
+ 	Functionality	:	Shows form to update user data.
+ 	Creation Date	:	August ‎11, ‎2017, ‏‎2:42:59 PM
+---->
+<a href="##" id="updateProfilePopup">Edit Profile</a>
 
 <div id="updateProfile-panel" style="hidden:true;display:none">
 	<form action="index.cfm?event=updateAction" method="post" id="form-update">
@@ -7,23 +12,6 @@
 				<label class="form-header"><strong>Edit-Profile</strong> </label><br><br>
 				<hr width="auto" style="border:1px solid black;"><br>
 				<div class="edit-info-1" style="display:inline-block;float:left;width:50%">
-				<!---
-				
-				<label class="form-label">Name<label><br>
-					<input type="text" name="name" id="name" placeholder="Name">
-				<label class="form-label">Email</label><br>
-					<input type="email" name="email" id="email" placeholder="Email Address">
-				<label class="form-label">Phone</label><br>
-					<input type="text" name="phone" id="phone" placeholder="Phone Number">
-				<label class="form-label">City</label><br>
-					<input type="text" name="city" id="city" placeholder="City">
-				<label class="form-label">Country</label><br>
-					<input type="text" name="country" id="country" placeholder="Country">
-				<label class="form-label">Username</label><br>
-					<input type="text" name="username" id="username" placeholder="Username">
-				<label class="form-label">Password</label><br>
-					<input type="password" name="password" id="password" placeholder="Password">
-				--->
 			<div class="input-group">
 		      <span class="input-group-addon"><i class="glyphicon glyphicon-user"></i></span>
 		      <input id="name" type="text" class="form-control required" name="name" placeholder="Name">

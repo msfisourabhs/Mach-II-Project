@@ -1,8 +1,14 @@
-﻿<cfcomponent
-	displayname="RegisterDataFilter"
+﻿<!----	
+	Filename 		:	updatePictureFilter.cfc 
+ 	Functionality	:	Filter validates whether picture uploaded follows all
+ 						the constraintsa and filters out unsuccessful attempts. 
+ 	Creation Date	:	August ‎23, ‎2017, ‏‎2:42:59 PM
+---->
+<cfcomponent
+	displayname="updatePictureFilter"
 	extends="MachII.framework.EventFilter"
 	output="true"
-	hint="A simple event filter for registration data.">
+	hint="event filter for checking the picture uploaded.">
 	
 	<!---
 	PROPERTIES
@@ -21,19 +27,17 @@
 	PUBLIC FUNCTIONS
 	--->
 	<cffunction name="filterEvent" access="public" returntype="boolean" output="true"
-		hint="I am invoked by the Mach II framework.">
+		hint="functions validates whether a picture uploaded follows all the constraints">
 		<cfargument name="event" type="MachII.framework.Event" required="true"
-			hint="I am the current event object created by the Mach II framework." />
+			hint="current event object created by the Mach II framework." />
 		<cfargument name="eventContext" type="MachII.framework.EventContext" required="true"
-			hint="I am the current event context object created by the Mach II framework." />
+			hint="current event context object created by the Mach II framework." />
 		<cfargument name="paramArgs" type="struct" required="false" default="#structNew()#"
-			hint="I am the structure containing the parameters specified in the filter invocation in mach-ii.xml." />		
-		<!--- Put logic here.
-			Return FALSE to abort the current event handler.
-			Return TRUE to continue the current event handler. --->
+			hint="structure containing the parameters specified in the filter invocation in mach-ii.xml." />		
 		<cfset LOCAL.tempDirectory = getTempDirectory()>
 			<cftry>
-				<cfif len(trim(arguments.event.getArg("userpicture")))>
+				<!---Check for the upload type to be image files only--->
+				<cfif len(trim(ARGUMENTS.event.getArg("userpicture")))>
 				  <cffile action="upload" 
 				     fileField="userpicture"
 				     destination=#LOCAL.tempDirectory#
@@ -41,19 +45,23 @@
 					 result="uploadResponse"
 					 nameconflict="overwrite" >
 				<cfelse>
+					<!---User enetered no file---->
 					<cfset VARIABLES.errorFlag = "The file size cannot be 0 bytes">
 				</cfif>
 				
 			<cfcatch name="fileResponse" type="any">
+				<!---User entered a non-image file---->
 				<cfset VARIABLES.errorFlag = fileResponse.Detail>
 			</cfcatch>	
 			</cftry>
 			<cfif VARIABLES.errorFlag EQ "">	
-				<cfset arguments.event.setArg("fileInfo",variables.uploadResponse)>
+				<!---Upload was successful with all the checks--->
+				<cfset ARGUMENTS.event.setArg("fileInfo",VARIABLES.uploadResponse)>
 				<cfreturn true>
 			<cfelse>
-				<cfset arguments.event.setArg("errors",VARIABLES.errorFlag)>
-		 		<cfset announceEvent("userProfile",arguments.event.getArgs())>
+				<!----Return user to their profile page with error message--->
+				<cfset ARGUMENTS.event.setArg("errors",VARIABLES.errorFlag)>
+		 		<cfset announceEvent("userProfile",ARGUMENTS.event.getArgs())>
 				<cfreturn false>
 			</cfif>
 	</cffunction>

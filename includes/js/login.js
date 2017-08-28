@@ -1,3 +1,8 @@
+/*	Filename 		: 	login.js
+ 	Functionality	:	Adds client side validation of fields
+ 						Dynamically generates errors on invalid inputs 
+	Creation Date	:	August ‎22, ‎2017, ‏‎2:42:59 PM
+*/
 
 window.onload = addHandler();	
 function addHandler(){
@@ -12,7 +17,9 @@ function addHandler(){
 
 function checkUserLogin(){
 	if(!checkEmptyAndSpaces.call(this)){ 
-		if( checkWords.call(this) || checkEmail.call(this))
+		if(( checkWords.call(this) || checkEmail.call(this))
+			|| (checkEmail.call(this) || checWords.call(this)))
+			
 			{}
 		else
 			generateErrors("Email address/Username is not valid",this);

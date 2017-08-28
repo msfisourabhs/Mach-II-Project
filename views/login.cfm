@@ -1,3 +1,8 @@
+<!----	
+	Filename 		:	login.cfm 
+ 	Functionality	:	Login form with modal
+ 	Creation Date	:	August ‎11, ‎2017, ‏‎2:42:59 PM
+---->
 <h4><span class="glyphicon glyphicon-log-in"></span><a href="#" id="loginPopup">Sign In</a></h4>
 		
 <div id="login-panel">

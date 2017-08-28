@@ -81,7 +81,7 @@ framework to be loaded as they interact with framework components:
 	<!--- Set the path to the application's mach-ii.xml file. Default to ./config/mach-ii.xml. --->
 	<cfparam name="MACHII_CONFIG_PATH" type="string" default="#ExpandPath('./config/mach-ii.xml')#" />
 	<!--- Set the configuration mode (when to reload): -1=never, 0=dynamic, 1=always --->
-	<cfparam name="MACHII_CONFIG_MODE" type="numeric" default="-1" />
+	<cfparam name="MACHII_CONFIG_MODE" type="numeric" default="1" />
 	<!---
 		Set the app key for sub-applications within a single cf-application. Default to the folder name below the Application.cfc/cfm.
 		Windows systems use the nasty "\" so we convert all "\" to "/".

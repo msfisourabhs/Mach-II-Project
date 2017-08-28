@@ -1,12 +1,14 @@
-﻿	
+﻿<!----	
+	Filename 		:	updatePicture.cfm 
+ 	Functionality	:	Displays form to update/add pictures/paintings.
+ 	Creation Date	:	August ‎11, ‎2017, ‏‎2:42:59 PM
+---->	
 <div id="updatePicture-panel">
 	<div class="bd" style="padding:10px 10px;background-color:white">
 		<form method="post" id="update-picture-form" action="index.cfm?event=updatePicture" enctype="multipart/form-data" style="display:none;hidden:true;background:url('/img/background8.jpg');background-size:cover;background-repeat:no-repeat;">
 			<label class="form-header"><strong>Update-Picture</strong> </label><br><br>
 			<hr width="auto" style="border:1px solid black;"><br>
-			<!---
-			<label class="form-label">Select File<label>
-			--->
+			
 			<div class="input-group">
 		      <span class="input-group-addon"><i class="glyphicon glyphicon-open-file"></i></span>
 		    

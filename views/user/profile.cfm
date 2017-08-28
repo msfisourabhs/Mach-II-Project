@@ -1,4 +1,9 @@
-﻿<cfoutput>
+﻿<!----	
+	Filename 		:	profile.cfm 
+ 	Functionality	:	Displays user profile for public/private events.
+ 	Creation Date	:	August ‎11, ‎2017, ‏‎2:42:59 PM
+---->
+<cfoutput>
 
 <div class="user-info">
 	
