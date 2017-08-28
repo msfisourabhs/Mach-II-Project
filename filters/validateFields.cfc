@@ -58,7 +58,10 @@
 				if(count NEQ arrayLen(errorMessages)){
 					arguments.event.setArg("message",errorMessages);
 					arguments.event.setArg("callee",getParameter("callee"));
-					announceEvent("failed",arguments.event.getArgs());
+					if(getParameter("callee") EQ "update")
+						announceEvent("userProfile",arguments.event.getArgs());
+					else
+						announceEvent("failed",arguments.event.getArgs());
 					return false;
 				}
 				else{

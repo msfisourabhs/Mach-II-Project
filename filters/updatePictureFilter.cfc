@@ -32,26 +32,30 @@
 			Return FALSE to abort the current event handler.
 			Return TRUE to continue the current event handler. --->
 		<cfset LOCAL.tempDirectory = getTempDirectory()>
-			<cfif len(trim(arguments.event.getArg("userpicture")))>
-			  <cffile action="upload" 
-			     fileField="userpicture"
-			     destination=#LOCAL.tempDirectory#
-				 accept="image/jpg,image/png,image/jpeg"
-				 result="uploadResponse"
-				 nameconflict="overwrite" >
-							
+			<cftry>
+				<cfif len(trim(arguments.event.getArg("userpicture")))>
+				  <cffile action="upload" 
+				     fileField="userpicture"
+				     destination=#LOCAL.tempDirectory#
+					 accept="image/jpg,image/png,image/jpeg"
+					 result="uploadResponse"
+					 nameconflict="overwrite" >
+				<cfelse>
+					<cfset VARIABLES.errorFlag = "The file size cannot be 0 bytes">
+				</cfif>
+				
+			<cfcatch name="fileResponse" type="any">
+				<cfset VARIABLES.errorFlag = fileResponse.Detail>
+			</cfcatch>	
+			</cftry>
+			<cfif VARIABLES.errorFlag EQ "">	
+				<cfset arguments.event.setArg("fileInfo",variables.uploadResponse)>
+				<cfreturn true>
 			<cfelse>
-				<cfset VARIABLES.errorFlag = "The file size cannnot be 0 bytes">
+				<cfset arguments.event.setArg("errors",VARIABLES.errorFlag)>
+		 		<cfset announceEvent("userProfile",arguments.event.getArgs())>
+				<cfreturn false>
 			</cfif>
-		<cfif VARIABLES.errorFlag NEQ "">
-			<cfset arguments.event.setArg("response",VARIABLES.errorFlag)>
-			<cfset announceEvent("userProfile",arguments.event.getArgs())>
-			<cfset fileDelete("#local.tempDirectory##uploadResponse.serverFile#")>
-			<cfreturn false>
-		<cfelse>
-			<cfset arguments.event.setArg("fileInfo",variables.uploadResponse)>
-			<cfreturn true>
-		</cfif>
 	</cffunction>
 	
 </cfcomponent>

@@ -1,23 +1,4 @@
-<cfif event.isArgDefined("callee")>
-	<cfoutput>
-		<p>User #event.getArg("callee")# Failed</p>
-	</cfoutput>
-</cfif>
-<cfif event.isArgDefined("message")>
-	
-	<cfloop array="#event.getArg("message")#" index="i">
-		<cfoutput >
-			<div id="error">
-				<p>#i#</p>
-			</div>
-		</cfoutput>
-	</cfloop>
-</cfif>
-<cfif event.isArgDefined("response")>
-	<cfoutput>
-		<p>#event.getArg("response")# </p>
-	</cfoutput>
-</cfif>
+
 <!---Display all the public painting
 	<cfif event.isArgDefined("callee")>
 	<cfoutput>
@@ -46,4 +27,8 @@
 </div>
 
 <br>
-
+<script>
+	window.onload = function(){
+			$(".alert").fadeOut(4000);
+		}	
+</script>

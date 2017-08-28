@@ -95,6 +95,8 @@
 		</event-filter>
 		<event-filter name="updatePictureFilter" type="filters.updatePictureFilter">
 		</event-filter>
+		<event-filter name="isLoggedInFilter" type="filters.isLoggedInFilter">
+		</event-filter>
 	</event-filters>
 
 	<!-- PLUGINS -->
@@ -133,6 +135,8 @@
 			<redirect event="publicPage" persist="true"/>
 		</event-handler>
 		<event-handler event="logoutAction" access="public">
+			<filter name="isLoggedInFilter">
+			</filter>
 			<notify listener="logoutActionListener" method="doLogout"/>
 			<redirect event="publicPage" />	
 		</event-handler>
@@ -142,6 +146,8 @@
 			<notify listener="registerActionListener" method="doRegister"/>
 		</event-handler>
 		<event-handler event="userProfile" access="public">
+			<filter name="isLoggedInFilter">
+			</filter>
 			<notify listener="userProfileListener" method="fetchUserDetails"/>
 			<view-page name="logout" contentArg="logoutContent"/>
 			<view-page name="header" contentArg="headerContent"/>
@@ -160,9 +166,10 @@
 			<filter name="updatePictureFilter">
 			</filter>
 			<notify listener="updatePictureListener" method="updatePicture"/>
-			<redirect event="userProfile"/>
 		</event-handler>
 		<event-handler event="makePaintingsPublic" access="public">
+			<filter name="isLoggedInFilter">
+			</filter>
 			<notify listener="paintingsActionListener" method="makePublic"/>
 		</event-handler>
 		<event-handler event="showPublicProfile" acess="public">
@@ -174,6 +181,11 @@
 			<view-page name="profile" contentArg="publicContent"/>
 			<view-page name="footer" contentArg="footerContent"/>
 			<view-page name="main" />
+		</event-handler>
+		<event-handler event="error" access="public">
+			<view-page name="header" contentArg="headerContent"/>
+			<view-page name="error"/>
+			<view-page name="main"/>	
 		</event-handler>
 		<!-- sample event handler that uses caching and the default cache (data cached for 1 hour in application scope) -->
 		<!--
@@ -218,7 +230,8 @@
 		<page-view name="updatePicture" page="/views/user/updatePicture.cfm"/>
 		<page-view name="updateProfile" page="/views/user/updateProfile.cfm"/>
 		<page-view name="profile" page="/views/user/profile.cfm"/>
-		<page-view name="addPaintings" page="views/user/addPaintings.cfm"/>			
+		<page-view name="addPaintings" page="/views/user/addPaintings.cfm"/>	
+		<page-view name="error" page="/views/errors.cfm"/>		
 	</page-views>
 	
 </mach-ii>

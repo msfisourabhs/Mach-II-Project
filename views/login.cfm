@@ -1,16 +1,39 @@
-<h4><a href="#" id="loginPopup">Sign In</a></h4>
+<h4><span class="glyphicon glyphicon-log-in"></span><a href="#" id="loginPopup">Sign In</a></h4>
 		
 <div id="login-panel">
 	
-	<div class="bd" style="padding:10px 10px;background-color:white">
+	<div class="bd" style="padding:10px 10px;background:url('/img/background3.jpg');background-size:cover;background-repeat:no-repeat;">
 		<form method="post" action="index.cfm?event=loginAction">
-			<label class="form-header"><strong>Sign In</strong> </label><br><br>
+			<label class="form-header">
+				<strong>Sign In</strong> 
+			</label><br><br>
 			<hr width="auto" style="border:1px solid black;"><br>
-			<label class="form-label">Username or Email<label>
+			<!---
+			<label class="form-label">
+				<span class="glyphicon glyphicon-user"></span>Username or Email
+			</label>
 				<input type="text" name="userlogin" id="username" placeholder="User Name">
-			<label class="form-label">Password</label>
+			
+			
+			<label class="form-label">
+				<span class="glyphicon glyphicon-lock"></span>Password
+			</label>
 				<input type="password" name="password" id="password" placeholder="Password">
-			<button type="submit" value="Submit"><label class="submitbttn">Login</label></button>
+			--->
+			<div class="input-group">
+      			<span class="input-group-addon"><i class="glyphicon glyphicon-user"></i></span>
+     				 <input id="form-userlogin" type="text" class="form-control required" name="userlogin" placeholder="Email Address or Username">
+   		    </div>
+		
+   			 <div class="input-group">
+      			<span class="input-group-addon"><i class="glyphicon glyphicon-lock"></i></span>
+      				<input id="form-password" type="password" class="form-control required" name="password" placeholder="Password">
+    		</div>
+			<br>
+			<button type="submit" value="Submit" class="btn btn-primary btn-block">
+				<span class="glyphicon glyphicon-log-in"></span>
+				<label class="submitbttn">Sign In</label>
+			</button>
 			<br><br>
 			<label class="footer"><a href="#" id="registerPopup">New User? Register Here</a>
 			</label>
@@ -33,7 +56,7 @@
 				fixedcenter:true,
 				constraintoviewport:true,
 				width:"400px",
-				height:"350px",
+				height:"auto",
 				underlay:"none",
 				effect:[{effect:YAHOO.widget.ContainerEffect.FADE,duration:0.5}],
 			});
@@ -51,7 +74,7 @@
 				fixedcenter:true,
 				constraintoviewport:true,
 				width:"500px",
-				height:"630px",
+				height:"100%",
 				underlay:"none",
 				effect:[{effect:YAHOO.widget.ContainerEffect.FADE,duration:0.5}],
 			});
@@ -67,6 +90,7 @@
 	loader.insert();
 	
 </script>
+<script type="text/javascript" src="/includes/js/login.js"></script>
 <cfoutput>
 	#event.getArg("registerForm")#
 </cfoutput>

@@ -1,13 +1,12 @@
-﻿
-<cfoutput>
-<p>#event.getArg("response")#</p>
+﻿<cfoutput>
+
 <div class="user-info">
 	
-	<div class="profile-picture" style="display:inline-block;">
+	<div class="profile-picture" style="display:inline-block;float:left">
 		<img src="/img/#event.getArg("userPictures").pictureLocation#"	alt=#event.getArg("userPictures").pictureName# width="166px" height="170px">
 		<cfif event.getArg("display") EQ "private">
 			<cfoutput>
-				<button id="updatePicturePopup" style="width:50%" onclick="updateFileIdentifier(this)"><label class="uploadbttn">Upload Profile Picture</label></button>
+				<button id="updatePicturePopup" class="btn btn-primary" style="display:block" onclick="updateFileIdentifier(this)"><label class="uploadbttn">Upload Profile Picture</label></button>
 			</cfoutput>
 		</cfif>
 		#event.getArg("updatePicture")#
@@ -17,7 +16,7 @@
 			<h3>#event.getArg("user").name#<h3>
 			<h5>#event.getArg("user").city#,#event.getArg("user").country#</h5>
 		</div>
-		<div class="update-profile" style="display:inline-block;float:right;padding-left:750px">
+		<div class="update-profile" style="display:inline-block;float:right;">
 			#event.getArg("updateProfile")#
 			
 		</div>
@@ -67,3 +66,9 @@
 	</div>
 </div>
 </cfoutput>
+
+<script>
+	window.onload = function(){
+			$(".alert").fadeOut(4000);
+		}	
+</script>

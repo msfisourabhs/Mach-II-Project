@@ -31,8 +31,13 @@
 				<cfset local.uid = Session.uid>
 			</cfif>
 		<cfelse>
-			<cfset local.uid = arguments.event.getArg("uid")>
+			<cfif event.isArgDefined("uid")>
+				<cfset local.uid = arguments.event.getArg("uid")>
+			<cfelse>
+				<cfset VARIABLES.errorFlag = "You are not authorised to view this page">
+			</cfif>	
 		</cfif>
+		<cftry>
 			<cfquery name = "fetchUserData" datasource="Mach2DS">
 				SELECT Name,Email,Phone,About,City,Country
 					FROM dbo.User_Profile
@@ -71,6 +76,12 @@
 			<cfset arguments.event.setArg("user" , fetchUserData)>
 			<cfset arguments.event.setArg("userPictures" , fetchUserPicture)>
 			<cfset arguments.event.setArg("userPaintings" ,fetchUserPaintings)>
+		
+		<cfcatch type="any">
+			<cfset arguments.event.setArg("response",VARIABLES.errorFlag)>
+			<cfset announceEvent("error",arguments.event.getArgs())>
+		</cfcatch>
+		</cftry>
 		
 	</cffunction>
 
