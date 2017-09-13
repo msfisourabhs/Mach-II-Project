@@ -22,6 +22,10 @@
 	<cffunction name="configure" access="public" returntype="void" output="false"
 		hint="Configures the listener.">
 		<!--- Put custom configuration for this listener here. --->
+	<cfif StructKeyExists(SESSION,"User")>		
+		<cfset VARIABLES.painterDAO = createObject("component","models.painter.painterDAO").init(SESSION.User)>
+		<cfset VARIABLES.painterService = createObject("component","models.painter.painterService").init(VARIABLES.painterDAO)>
+	</cfif>
 	</cffunction>
 	
 	<!---
@@ -30,19 +34,22 @@
 	<cffunction name="fetchUserDetails" output="false" access="public" returntype="void"
 		hint="function fetches registered user data to public/private events">
 		<cfargument name="event" type="MachII.framework.Event" required="true" />
-		<cfif StructKeyExists(SESSION,"uid")>
+		<cfif StructKeyExists(SESSION,"User")>
 			<cfif event.isArgDefined("uid") AND getParameter("callee") EQ "public">
 				<cfset LOCAL.uid = event.getArg("uid")>
 			<cfelse>
-				<cfset LOCAL.uid = SESSION.uid>
+				<cfset LOCAL.uid = SESSION.User.getUid()>
 			</cfif>
 		<cfelse>
-			<cfif ARGUMETS.event.isArgDefined("uid")>
+			<cfif ARGUMENTS.event.isArgDefined("uid")>
 				<cfset LOCAL.uid = ARGUMENTS.event.getArg("uid")>
 			<cfelse>
 				<cfset VARIABLES.errorFlag = "You are not authorised to view this page">
 			</cfif>	
 		</cfif>
+		<cfset ARGUMENTS.event.setArg("display",getParameter("callee"))>
+			
+		<!---
 		<cftry>
 			<cfquery name = "fetchUserData" datasource="Mach2DS">
 				SELECT Name,Email,Phone,About,City,Country
@@ -88,7 +95,7 @@
 			<cfset announceEvent("error",ARGUMENTS.event.getArgs())>
 		</cfcatch>
 		</cftry>
-		
+		--->
 	</cffunction>
 
 </cfcomponent>

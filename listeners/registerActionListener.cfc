@@ -21,27 +21,41 @@
 	<cfset VARIABLES.errorFlag = "">
 	<cffunction name="configure" access="public" returntype="void" output="false"
 		hint="Configures the listener.">
+		
 		<!--- Put custom configuration for this listener here. --->
+		<cfset VARIABLES.painter = createObject("component","models.painter.painter").init()>
+		<cfset VARIABLES.painterDAO = createObject("component","models.painter.painterDAO").init(VARIABLES.painter)>
+		<cfset VARIABLES.pictureDAO = createObject("component","models.picture.pictureDAO").init(VARIABLES.painter)>
+		<cfset VARIABLES.painterService = createObject("component","models.painter.painterService").init(VARIABLES.painterDAO)>
 		
 	</cffunction>
 	
 	<!---
 	PUBLIC FUNCTIONS
 	--->
-	<cffunction name="doRegister" output="false" access="public" returntype="void"
+	<cffunction name="doRegister" output="true" access="public" returntype="void"
 		hint="function checks for exsisting user and adds user data if no exsisting data is found">
 		<cfargument name="event" type="MachII.framework.Event" required="true" />
 		<!--- Check if username or email is taken,and addUser was success --->
-		<cfif checkForExsistingUser(ARGUMENTS.event.getArg("username"),ARGUMENTS.event.getArg("email"))
-			 AND addUser(ARGUMENTS.event)>
-			<cfset ARGUMENTS.event.setArg("response",VARIABLES.errorFlag)>
+		<cfset VARIABLES.painter.init(Name=ARGUMENTS.event.getArg("Name"),
+										Email=ARGUMENTS.event.getArg("Email"),
+										Phone=ARGUMENTS.event.getArg("Phone"),
+										City=ARGUMENTS.event.getArg("City"),
+										Country=ARGUMENTS.event.getArg("Country"),
+										Username=ARGUMENTS.event.getArg("Username"),
+										Password=ARGUMENTS.event.getArg("Password")
+										)>
+		<cfset VARIABLES.errorFlag = VARIABLES.painterService.createPainter(VARIABLES.pictureDAO)>
+		<cfif VARIABLES.errorFlag EQ "">
+			<cfset ARGUMENTS.event.setArg("response","User registration was successful")>
+
 			<cfset announceEvent("publicPage",ARGUMENTS.event.getArgs())>
-			
 		<cfelse>
-			<cfset ARGUMENTS.event.setArg("response","User already exsist")>
+			<cfset ARGUMENTS.event.setArg("response",VARIABLES.errorFlag)>
 			<cfset announceEvent("failed",ARGUMENTS.event.getArgs())>
 		</cfif>
 	</cffunction>
+	<!---
 	<cffunction name="addUser" output="false" returntype="boolean" access="private">
 		<cfargument name="event" type="MachII.framework.Event" required="true" />
 			<cfset VARIABLES.salt = Hash(GenerateSecretKey("AES"), "SHA-512") /> 
@@ -113,4 +127,5 @@
 				<cfreturn false>
 			</cfif>	
 	</cffunction>
+	--->
 </cfcomponent>

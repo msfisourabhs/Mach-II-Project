@@ -23,6 +23,11 @@
 	<cffunction name="configure" access="public" returntype="void" output="false"
 		hint="Configures the listener.">
 		<!--- Put custom configuration for this listener here. --->
+		<cfif StructKeyExists(SESSION,"User")>
+			
+			<cfset VARIABLES.painterDAO = createObject("component","models.painter.painterDAO").init(SESSION.User)>
+			<cfset VARIABLES.painterService = createObject("component","models.painter.painterService").init(VARIABLES.painterDAO)>
+		</cfif>
 	</cffunction>
 	
 	<!---
@@ -32,18 +37,13 @@
 		hint="function deauthenticates user">
 		<cfargument name="event" type="MachII.framework.Event" required="true" />
 			<!---set isActive flag to inactive--->
-			<cfif StructKeyExists(session,"uid")>
-				<cfquery datasource="Mach2DS">
-					UPDATE dbo.User_Details
-					SET isActive = 0
-					WHERE uid = #SESSION.uid#
-				</cfquery>
-				<!---Logout the user--->
-				<cfset StructClear(SESSION)>
-				<cfset Sessioninvalidate()>
-			<cfelse>
-				<!---Set error flag --->
-				<cfset ARGUMENTS.event.setArg("response","Your session has timed out")>
+			<cfif StructKeyExists(SESSION,"User")>
+				<cfset LOCAL.validation = createObject("component","models.painter.authenticationService").init(SESSION.User,VARIABLES.painterService)>
+				<cfset VARIABLES.errorFlag = LOCAL.validation.doLogout()>
+				<cfif NOT VARIABLES.errorFlag >	
+					<!---Set error flag --->
+					<cfset ARGUMENTS.event.setArg("response","Your session has timed out")>
+				</cfif>
 			</cfif>
 	</cffunction>
 </cfcomponent>

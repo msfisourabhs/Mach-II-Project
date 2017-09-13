@@ -95,7 +95,6 @@
 	loader.insert();
 	
 </script>
-<script type="text/javascript" src="/includes/js/login.js"></script>
 <cfoutput>
 	#event.getArg("registerForm")#
 </cfoutput>

@@ -3,10 +3,10 @@
  	Functionality	:	View page for all the public paintings
  	Creation Date	:	August ‎11, ‎2017, ‏‎2:42:59 PM
 ---->
-
+<cfdump var="#Session#">
 <p>Welcome Artists and Art Lovers.Have a look at our art gallery.</p>
 
-<div class="paintings">
+<div id="paintings">
 	<cfloop query="#event.getArg("paintings")#">
 		<cfoutput >
 			<div class="gallery">
@@ -22,6 +22,7 @@
 			  </div>
 			</div>
 		</cfoutput>
+	
 	</cfloop>
 </div>
 

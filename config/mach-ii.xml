@@ -29,7 +29,8 @@
 
 	<!-- LISTENERS -->
 	<listeners>
-		
+		<listener name="test" type="listeners.test">
+		</listener>
 		<listener name="loginActionListener" type="listeners.loginActionListener">
 			<!--
 			<parameters>
@@ -112,6 +113,10 @@
 
 	<!-- EVENT-HANDLERS -->
 	<event-handlers>
+		<event-handler event="test" access="public">
+			<notify listener="test" method="test"/>
+				
+		</event-handler>
 		<event-handler event="home" access="public">
 			<!-- <notify listener="SomeListener" method="doSomething" resultArg="resultOfSomething" />  -->
 			<view-page name="home" />

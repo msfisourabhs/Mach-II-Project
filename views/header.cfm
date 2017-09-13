@@ -12,7 +12,7 @@
 	<div class="header-right"> 
 		<!---to look for sign in status of user--->
 		<cfoutput>
-			<cfif StructKeyExists(SESSION,"uid")>
+			<cfif StructKeyExists(SESSION,"User")>
 				#event.getArg("logoutContent")#
 			<cfelse>
 				#event.getArg("loginForm")#

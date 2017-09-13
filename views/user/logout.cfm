@@ -5,9 +5,9 @@
 ---->
 <h4>
 	Welcome	
-	<cfif StructKeyExists(Session,"name")>
+	<cfif StructKeyExists(Session,"User")>
 		<cfoutput>
-			<a href="index.cfm?event=userProfile">#Session.name#</a>
+			<a href="index.cfm?event=userProfile">#Session.User.getName()#</a>
 		</cfoutput>
 	</cfif>
 	| <a href="index.cfm?event=logoutAction">Sign Out</a>
