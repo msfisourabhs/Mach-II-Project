@@ -41,7 +41,7 @@
 	interfaces).
 
 Author: Peter J. Farrell(peter@mach-ii.com)
-$Id: CacheStrategyManagerTest.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.6.0
 Updated version: 1.8.0
@@ -49,9 +49,9 @@ Updated version: 1.8.0
 Notes:
 --->
 <cfcomponent
-	displayname="CacheStatsTest"
+	displayname="CacheStrategyManagerTest"
 	extends="mxunit.framework.TestCase"
-	hint="Test cases for MachII.caching.CacheStats.">
+	hint="Test cases for MachII.caching.CacheStrategyManager.">
 
 	<!---
 	PROPERTIES
@@ -75,7 +75,7 @@ Notes:
 	PUBLIC FUNCTIONS - TEST CASES
 	--->
 	<cffunction name="testLoadConfigureGet" access="public" returntype="void" output="false"
-		hint="Tests load(), configure() and get() routines.">
+		hint="Tests load(), configure(), get() and removed() routines.">
 
 		<cfset var strategy = "" />
 
@@ -90,6 +90,12 @@ Notes:
 
 		<!--- Assert we got a strategy back --->
 		<cfset assertTrue(IsObject(strategy)) />
+
+		<!--- Remove the strategy --->
+		<cfset variables.cacheStrategyManager.removeCacheStrategy("default") />
+
+		<!--- Assert the the strategy has been removed --->
+		<cfset assertFalse(variables.cacheStrategyManager.isCacheStrategyDefined("defined")) />
 	</cffunction>
 
 	<cffunction name="testGenerateScopeKey" access="public" returntype="void" output="false"

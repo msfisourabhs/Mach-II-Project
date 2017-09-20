@@ -67,11 +67,11 @@ in your user.properties to hold the spassword.
 DO NOT ADD THESE PROPERTIES TO THIS FILE AS THIS FILE IS PUBLIC!
 -->
 <project
-	name="Mach-II Framework 1.8.1"
+	name="Mach-II Framework 1.9.0"
 	default="usage"
 	basedir=".">
 	
-	<description>Mach-II Framework 1.8.1</description>
+	<description>Mach-II Framework 1.9.0</description>
 	
 	<!--
 	PROPERTIES
@@ -81,13 +81,13 @@ DO NOT ADD THESE PROPERTIES TO THIS FILE AS THIS FILE IS PUBLIC!
 	
 	<property name="dest" location="./dest"/>
 	<property name="zip" location="./zip"/>
-	<property name="majorVersion" value="1-8-1"/>
+	<property name="majorVersion" value="1-9-0"/>
 	<property name="baseSvnUrl" value="http://greatbiztools-svn.cvsdude.com/mach-ii/framework/${majorVersion}/"/>
-	<property name="debug" value="false"/>
+	<property name="debug" value="true"/>
 	
-	<property name="ftp.server" value="mach-ii.com"/>
-	<property name="ftp.user" value="machii"/>
-	<property name="ftp.webroot" value="/var/www/machii/m2website/public"/>
+	<property name="scp.server" value="mach-ii.com"/>
+	<property name="scp.user" value="root"/>
+	<property name="scp.webroot" value="/var/www/machii/m2website/public"/>
 	
 	<property name="mxunit.server" value="localhost"/>
 	<property name="mxunit.port" value="8080"/>
@@ -114,8 +114,10 @@ DO NOT ADD THESE PROPERTIES TO THIS FILE AS THIS FILE IS PUBLIC!
 			<pathelement location="${tasks.classpath}/svnkit.jar"/>
 		</classpath>
 	</taskdef>
-	<classloader loader="project" classpath="${tasks.classpath}/commons-net-1.4.1.jar"/>
-	<taskdef name="ftp" classname="org.apache.tools.ant.taskdefs.optional.net.FTP"/>
+	<classloader loader="project" classpath="${tasks.classpath}/jsch-0.1.44.jar"/>
+	<taskdef name="jsmin"
+        classname="net.matthaynes.jsmin.JSMin_Task"
+        classpath="${tasks.classpath}/jsmin.jar"/>
 	
 	<!--
 	TARGETS
@@ -168,13 +170,26 @@ DO NOT ADD THESE PROPERTIES TO THIS FILE AS THIS FILE IS PUBLIC!
 				<exclude name="build/"/>
 				<exclude name=".project"/>
 				<exclude name=".settings/"/>
+				<exclude name="dashboard/assets/"/>
+				<exclude name="dashboard/rawimg/"/>
 			</fileset>
+			<!-- filterset token replacement breaks 
+					images so assets were not included -->
 			<filterset begintoken="@" endtoken="@">
 				<filter token="minorVersion" value="${buildVersion}"/>
 				<filter token="buildDatetime" value="${buildDatetime}"/>
 			</filterset>
 		</copy>
+		<copy todir="${dest}/MachII/dashboard/assets"
+			verbose="${debug}"
+			preservelastmodified="true">
+			<fileset dir="${basedir}/dashboard/assets">
+				<exclude name="dashboard/assets" />
+			</fileset>
+		</copy>
+		<echo message="---------------------------------------------"/>
 		<echo message="Making copies of CHANGELOG, LICENSE, NOTICE and READMEs to .txt files for windows"/>
+		<echo message="---------------------------------------------"/>
 		<copy file="${dest}/MachII/CHANGELOG"
 			tofile="${dest}/MachII/CHANGELOG.txt"
 			preservelastmodified="true"
@@ -195,9 +210,102 @@ DO NOT ADD THESE PROPERTIES TO THIS FILE AS THIS FILE IS PUBLIC!
 			tofile="${dest}/MachII/tests/README.txt"
 			preservelastmodified="true"
 			verbose="${debug}"/>
+		<copy file="${dest}/MachII/dashboard/LICENSE"
+			tofile="${dest}/MachII/dashboard/LICENSE.txt"
+			preservelastmodified="true"
+			verbose="${debug}"/>
+		<copy file="${dest}/MachII/dashboard/NOTICE"
+			tofile="${dest}/MachII/dashboard/NOTICE.txt"
+			preservelastmodified="true"
+			verbose="${debug}"/>
+		<copy file="${dest}/MachII/dashboard/README"
+			tofile="${dest}/MachII/dashboard/README.txt"
+			preservelastmodified="true"
+			verbose="${debug}"/>
+		<echo message="---------------------------------------------"/>
+		<echo message="Clean up zip files (remove __MACOSX)"/>
+		<echo message="---------------------------------------------"/>
+        <deleletFromZip zipSrc="${basedir}/tooling/machbuilder/includes/skeleton.zip" 
+        	zipDest="${dest}/MachII/tooling/machbuilder/includes/skeleton.zip"
+			deleteDirs="/__MACOSX">
+        	<exclude name="**/*"/>
+        </deleletFromZip>
+		<echo message="---------------------------------------------"/>
 		<echo message="Built as version '${buildVersion}'"/>
-		<antcall target="testReport"/>
+		<echo message="---------------------------------------------"/>
 		<antcall target="varScopeCheck"/>
+		<antcall target="test"/>
+	</target>
+	
+	<target name="optimizeBuild">
+		<echo message="---------------------------------------------"/>
+		<echo message="Optimizing the build"/>
+		<echo message="---------------------------------------------"/>
+		<replaceregexp match="(!getEventContext\(\)\.)([ ]*|\()getAppManager\(\)[ ]*?"
+			replace="\1variables.appManager"
+			flags="igm">
+			<fileset dir="${dest}/MachII/framework" includes="RequestManager.cfc"/>
+			<fileset dir="${dest}/MachII/framework" includes="BaseComponent.cfc"/>
+			<fileset dir="${dest}/MachII/framework" includes="CommandLoaderBase.cfc"/>
+		</replaceregexp>
+		<replaceregexp match="(!arguments\.appManager\.)([ ]*|\()getPropertyManager\(\)[ ]*?"
+			replace="\1variables.propertyManager"
+			flags="igm">
+			<fileset dir="${dest}/MachII/framework" includes="RequestManager.cfc"/>
+		</replaceregexp>
+		<replaceregexp match="(!arguments\.appManager\.)([ ]*)getUtils\(\)[ ]*?"
+			replace="\1variables.utils"
+			flags="igm">
+			<fileset dir="${dest}/MachII/framework" includes="RequestManager.cfc"/>
+			<fileset dir="${dest}/MachII/framework" includes="EndpointManager.cfc"/>
+		</replaceregexp>
+		<replaceregexp match="(!variables\.appManager\.)([ ]*?)getRequestManager\(\)[ ]*?"
+			replace="\1variables.requestManager"
+			flags="igm">
+			<fileset dir="${dest}/MachII/framework" includes="BaseComponent.cfc"/>
+		</replaceregexp>
+			<replaceregexp match="(!variables\.appManager\.)([ ]*?)getEventContext\(\)[ ]*?"
+				replace="\1variables.eventContext"
+				flags="igm">
+				<fileset dir="${dest}/MachII/framework" includes="RequestHandler.cfc"/>
+			</replaceregexp>
+		<echo message="---------------------------------------------"/>
+		<echo message="Minimizing and Concatenating JS files"/>
+		<echo message="---------------------------------------------"/>
+		<jsmin destdir="${dest}/MachII/dashboard/assets/js/" force="true">
+			<fileset dir="${basedir}/dashboard/assets/js/" includes="**/*.js"/>
+		</jsmin>
+		<concat destfile="${dest}/MachII/dashboard/assets/js/libraries.js">
+			<filelist dir="${dest}/MachII/dashboard/assets/js" files="prototype.js,effects.js,builder.js,dragdrop.js,controls.js,slider.js,dialog.js"/>
+		</concat>
+		<delete>
+			<fileset dir="${dest}/MachII/dashboard/assets/js">
+				<include name="*.js"/>
+				<exclude name="libraries.js"/>
+			</fileset>
+		</delete>
+		<replaceregexp match="\&lt;!--- dashboardJsStart ---\&gt;(.*)\&lt;!--- dashboardJsEnd ---\&gt;"
+			replace='\&lt;view:script endpoint="dashboard.serveAsset" p:file="/js/libraries.js" outputType="inline" /\&gt;'
+			flags="gs" byline="false">
+			<fileset dir="${dest}/MachII/dashboard/views/layout/" includes="wrapper.cfm"/>
+		</replaceregexp>
+		<echo message="---------------------------------------------"/>
+		<echo message="Concatenating CSS files"/>
+		<echo message="---------------------------------------------"/>
+		<concat destfile="${dest}/MachII/dashboard/assets/css/combined.cfm">
+			<filelist dir="${dest}/MachII/dashboard/assets/css" files="basic.cfm,dialog.cfm"/>
+		</concat>
+		<delete>
+			<fileset dir="${dest}/MachII/dashboard/assets/css">
+				<include name="*.cfm"/>
+				<exclude name="combined.cfm"/>
+			</fileset>
+		</delete>
+		<replaceregexp match="\&lt;!--- dashboardCssStart ---\&gt;(.*)\&lt;!--- dashboardCssEnd ---\&gt;"
+			replace='\&lt;view:style endpoint="dashboard.serveAsset" p:file="/css/combined.cfm:css" media="screen,projection" outputType="inline" /\&gt;'
+			flags="gs" byline="false">
+			<fileset dir="${dest}/MachII/dashboard/views/layout/" includes="wrapper.cfm"/>
+		</replaceregexp>
 	</target>
 	
 	<target name="buildNightly">
@@ -244,6 +352,7 @@ DO NOT ADD THESE PROPERTIES TO THIS FILE AS THIS FILE IS PUBLIC!
 		<svn>
 			<status path="${basedir}" lastChangedRevisionProperty="buildVersion"/>
 		</svn>
+		<echo message="Target directory: ${basedir}"/>
 		<echo message="Last commit revision number #${buildVersion}"/>
 	</target>
 	
@@ -316,6 +425,9 @@ DO NOT ADD THESE PROPERTIES TO THIS FILE AS THIS FILE IS PUBLIC!
 	  
 		<!-- will be set if violations found else variable will be unset -->
 		<echo message="${varscoper.results}"/>
+		<echo message="---------------------------------------------"/>
+		<echo message="Report available at: file:///${varscoper.output}/results.csv"/>
+		<echo message="---------------------------------------------"/>
 	  
 		<fail message="Var scope violation is found.">
 			<condition>
@@ -388,51 +500,39 @@ DO NOT ADD THESE PROPERTIES TO THIS FILE AS THIS FILE IS PUBLIC!
 		<echo message="---------------------------------------------"/>
 	</target>
 	
-	<target name="ftp-init" description="Provides initialization for ftp targets.">
-		<input addProperty="ftp.password"
-			message="Please enter the password for FTP user named '${ftp.user}':"/>
-		<fail unless="ftp.password">You must set the ftp.password property for ftp as command line arg (e.g. -Dftp.password=YOURPWD) or input the password if you have manually run this target.</fail>
+	<target name="scp-init" description="Provides initialization for scp targets.">
+		<input addProperty="scp.password"
+			message="Please enter the password for SCP user named '${scp.user}':"/>
+		<fail unless="scp.password">You must set the scp.password property for SCP as command line arg (e.g. -Dscp.password=YOURPWD) or input the password if you have manually run this target.</fail>
 		<input addProperty="autoUpdate.password"
 			message="Please enter the password for auto updater:"/>
 		<fail unless="autoUpdate.password">You must set the autoUpdate.password property as command line arg (e.g. -DautoUpdate.password=YOURPWD) or input the password if you have manually run this target.</fail>
 	</target>
 	
-	<target name="ftp-zipNightly" depends="ftp-init,zipNightly" description="Creates a nightly build zip and uploads it to nightly directory on mach-ii.com">
+	<target name="scp-zipNightly" depends="scp-init,zipNightly" description="Creates a nightly build zip and uploads it to nightly directory on mach-ii.com">
 		<echo message="---------------------------------------------"/>
-		<echo message="FTP-ing nightly build" />
+		<echo message="SCP-ing nightly build" />
 		<echo message="---------------------------------------------"/>
-		<ftp server="${ftp.server}"
-			userid="${ftp.user}"
-			password="${ftp.password}"
-			action="put"
-			remotedir="${ftp.webroot}/nightly/"
-			verbose="${debug}">
+		<scp todir="${scp.user}:${scp.password}@${scp.server}:${scp.webroot}/nightly" 
+			verbose="${debug}"  >
 			<fileset dir="${zip}">
 				<include name="*.zip"/>
 				<include name="*.zip.MD5"/>
 			</fileset>
-		</ftp>
-		<ftp server="${ftp.server}"
-			userid="${ftp.user}"
-			password="${ftp.password}"
-			action="put"
-			remotedir="${ftp.webroot}/nightly/older/${majorVersion}/"
-			verbose="${debug}">
+		</scp>
+		<scp todir="${scp.user}:${scp.password}@${scp.server}:${scp.webroot}/nightly/older/${majorVersion}/" 
+			verbose="${debug}"  >
 			<fileset dir="${zip}/older/">
 				<include name="*.zip"/>
 				<include name="*.zip.MD5"/>
 			</fileset>
-		</ftp>
-		<ftp server="${ftp.server}"
-			userid="${ftp.user}"
-			password="${ftp.password}"
-			action="put"
-			remotedir="${ftp.webroot}/dtds/"
-			verbose="${debug}" >
+		</scp>
+		<scp todir="${scp.user}:${scp.password}@${scp.server}:${scp.webroot}/dtds/" 
+			verbose="${debug}"  >
 			<fileset dir="${dest}/MachII/">
 				<include name="*.dtd"/>
 			</fileset>
-		</ftp>
+		</scp>
 		<tempfile property="tempFile" suffix=".tmp" destdir="${dest}"/>
 		<get dest="${tempFile}" src="http://www.mach-ii.com/index.cfm?go=admin.updatePackage&amp;package=framework&amp;versionNumber=1.8.0.${buildVersion}&amp;fileLocation=http://www.mach-ii.com/nightly/older/${majorVersion}/MachII_${majorVersion}_nightly_${formattedDatetime}.zip&amp;password=${autoUpdate.password}"/>
 	</target>
@@ -443,5 +543,28 @@ DO NOT ADD THESE PROPERTIES TO THIS FILE AS THIS FILE IS PUBLIC!
 		<input addproperty="svn.pwd"
 			message="SVN password:"/>		
 	</target>
+
+	<!--
+	MACROS
+	-->
+	<macrodef name="deleletFromZip">
+		<attribute name="zipSrc"/>
+		<attribute name="zipDest"/>
+		<attribute name="deleteDirs"/>
+		<element name="selectors" implicit="true" optional="true"/>
+		<sequential>
+			<mkdir dir="${dest}/__tmp__"/>
+			<unzip dest="${dest}/__tmp__" src="@{zipSrc}"/>
+			<delete verbose="${debug}">
+				<fileset dir="${dest}/__tmp__">
+					<selectors/>
+				</fileset>
+			</delete>
+			<delete verbose="${debug}" dir="${dest}/__tmp__/@{deleteDirs}" failonerror="false"/>
+			<delete file="@{zipDest}"/>
+			<zip destfile="@{zipDest}" basedir="${dest}/__tmp__" />
+			<delete dir="${dest}/__tmp__"/>
+		</sequential>
+	</macrodef>
 	
 </project>

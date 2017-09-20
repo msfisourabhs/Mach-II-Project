@@ -7,7 +7,7 @@
 <cfcomponent
 	displayname="userProfileListener"
 	extends="MachII.framework.Listener"
-	output="false"
+	output="true"
 	hint="user profile public/private listener "
 	>
 
@@ -22,23 +22,27 @@
 	<cffunction name="configure" access="public" returntype="void" output="false"
 		hint="Configures the listener.">
 		<!--- Put custom configuration for this listener here. --->
-	<cfif StructKeyExists(SESSION,"User")>		
-		<cfset VARIABLES.painterDAO = createObject("component","models.painter.painterDAO").init(SESSION.User)>
-		<cfset VARIABLES.painterService = createObject("component","models.painter.painterService").init(VARIABLES.painterDAO)>
-	</cfif>
+	<cfset VARIABLES.painter = createObject("component","models.painter.painter").init()>
+	<cfset VARIABLES.pictureDAO = createObject("component","models.picture.pictureDAO").init(VARIABLES.painter)>
+	<cfset VARIABLES.painterDAO = createObject("component","models.painter.painterDAO").init(VARIABLES.painter)>
+	<cfset VARIABLES.painterService = createObject("component","models.painter.painterService").init(VARIABLES.painterDAO)>
+
 	</cffunction>
 	
 	<!---
 	PUBLIC FUNCTIONS
 	--->
-	<cffunction name="fetchUserDetails" output="false" access="public" returntype="void"
+	<cffunction name="fetchUserDetails" output="true" access="public" returntype="void"
 		hint="function fetches registered user data to public/private events">
 		<cfargument name="event" type="MachII.framework.Event" required="true" />
+				
 		<cfif StructKeyExists(SESSION,"User")>
 			<cfif event.isArgDefined("uid") AND getParameter("callee") EQ "public">
+				
 				<cfset LOCAL.uid = event.getArg("uid")>
 			<cfelse>
 				<cfset LOCAL.uid = SESSION.User.getUid()>
+				
 			</cfif>
 		<cfelse>
 			<cfif ARGUMENTS.event.isArgDefined("uid")>
@@ -48,7 +52,18 @@
 			</cfif>	
 		</cfif>
 		<cfset ARGUMENTS.event.setArg("display",getParameter("callee"))>
-			
+		<cfset VARIABLES.painter.init(uid=LOCAL.uid)>
+		<cfset VARIABLES.painters = VARIABLES.painterService.fetchPainter(VARIABLES.pictureDAO)>	
+		
+		<cfif VARIABLES.painters.getUid() GT 0>
+			<cfset ARGUMENTS.event.setArg("display" , getParameter("callee"))>
+			<cfset ARGUMENTS.event.setArg("User" , VARIABLES.painters)>
+			<cfset announceEvent("profile",ARGUMENTS.event.getArgs())>	
+		<cfelse>
+			<cfset ARGUMENTS.event.setArg("errorMessage","404.The page you were looking for was not found")>
+			<cfset announceEvent("error",ARGUMENTS.event.getArgs())>	
+		</cfif>
+		
 		<!---
 		<cftry>
 			<cfquery name = "fetchUserData" datasource="Mach2DS">

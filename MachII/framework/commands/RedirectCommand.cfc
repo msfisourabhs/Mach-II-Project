@@ -41,7 +41,7 @@
 	interfaces).
 
 Author: Ben Edwards (ben@ben-edwards.com)
-$Id: RedirectCommand.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.1.0
 Updated version: 1.8.0
@@ -109,23 +109,12 @@ Notes:
 		<cfset var redirectUrl = "" />
 		<cfset var log = getLog() />
 
-		<!--- Persist if directed --->
-		<cfif getPersist()>
-			<cfset savePersistEventData(arguments.event, arguments.eventContext) />
-		</cfif>
-
-		<!--- Make the url --->
-		<cfset redirectUrl = makeRedirectUrl(arguments.event, arguments.eventContext) />
-
 		<!--- Clear the event queue since we do not want to Application.cfc/cfm error
 			handling to catch a cfabort --->
 		<cfset arguments.eventContext.clearEventQueue() />
 
-		<cfif log.isInfoEnabled()>
-			<cfset log.info("Redirecting to url '#redirectUrl#' with '#statusType#' status code (persist='#getPersist()#').") />
-		</cfif>
-
-		<cfset arguments.eventContext.getAppManager().getRequestManager().redirectUrl(redirectUrl, getStatusType()) />
+		<!--- Make the redirect --->
+		<cfset makeRedirect(arguments.event, arguments.eventContext) />
 
 		<!--- Return false to stop the processeing of any remaning commands.
 			Since we have cleared the event queue, the request will stop
@@ -137,14 +126,15 @@ Notes:
 	<!---
 	PROTECTED FUNCTIONS
 	--->
-	<cffunction name="makeRedirectUrl" access="private" returntype="string" output="false"
-		hint="Assembles the redirect url.">
+	<cffunction name="makeRedirect" access="private" returntype="void" output="false"
+		hint="Redirects the request to the built route/event url.">
 		<cfargument name="event" type="MachII.framework.Event" required="true" />
 		<cfargument name="eventContext" type="MachII.framework.EventContext" required="true" />
 
 		<cfset var redirectUrl = "" />
 		<cfset var params = StructNew() />
 		<cfset var args = getArgs() />
+		<cfset var persistArgs = StructNew() />
 		<cfset var i = "" />
 		<cfset var element = "" />
 		<cfset var arg = "" />
@@ -165,9 +155,9 @@ Notes:
 				arguments.event, propertyManager) />
 		</cfif>
 
-		<!--- Add the persistId parameter to the url args if persist is required --->
-		<cfif getPersist() AND propertyManager.getProperty("redirectPersistParameterLocation") NEQ "cookie">
-			<cfset args = ListAppend(getArgs(), propertyManager.getProperty("redirectPersistParameter")) />
+		<!--- Persist if directed --->
+		<cfif getPersist()>
+			<cfset persistArgs = buildPersistEventData(arguments.event, arguments.eventContext) />
 		</cfif>
 
 		<!--- Build params which can have notation like args="id=${event.product_id},type=print"  --->
@@ -183,6 +173,7 @@ Notes:
 			<cfelse>
 				<cfif expressionEvaluator.isExpression(i)>
 					<cfset arg = expressionEvaluator.evaluateExpression(i, arguments.event, propertyManager) />
+					<cfset i = ListLast(ListFirst(REReplaceNoCase(i, "^\${(.*)}$", "\1", "all"), ":"), ".") />
 				<cfelse>
 					<cfset arg = arguments.event.getArg(i, "") />
 				</cfif>
@@ -193,16 +184,22 @@ Notes:
 			</cfif>
 		</cfloop>
 
+		<cfif Len(evaluatedUrl) AND expressionEvaluator.isExpression(evaluatedUrl)>
+			<cfset evaluatedUrl = expressionEvaluator.evaluateExpression(evaluatedUrl, arguments.event, propertyManager) />
+		</cfif>
+
 		<!--- Support redirect urls using a url route --->
 		<cfif Len(evaluatedRouteName)>
-			<cfset redirectUrl = arguments.eventContext.getAppManager().getRequestManager().buildRouteUrl(
-				evaluatedRouteName,
-				params) />
+			<cfset getLog().info("Redirecting to route '#evaluatedRouteName#' with '#statusType#' status code (persist='#getPersist()#').") />
+
+			<cfset arguments.eventContext.getAppManager().getRequestManager().getRequestHandler().getEventContext().redirectRoute(
+					evaluatedRouteName
+					, params
+					, getPersist()
+					, persistArgs
+					, getStatusType()
+					, evaluatedUrl) />
 		<cfelse>
-			<!--- If it isn't a route then look at the url and event name properties to build the redirect url --->
-			<cfif Len(evaluatedUrl) AND expressionEvaluator.isExpression(evaluatedUrl)>
-				<cfset evaluatedUrl = expressionEvaluator.evaluateExpression(evaluatedUrl, arguments.event, propertyManager) />
-			</cfif>
 			<cfif Len(evaluatedEventName) AND expressionEvaluator.isExpression(evaluatedEventName)>
 				<cfset evaluatedEventName = expressionEvaluator.evaluateExpression(evaluatedEventName, arguments.event, propertyManager) />
 			</cfif>
@@ -210,13 +207,20 @@ Notes:
 				<cfset evaluatedModuleName = expressionEvaluator.evaluateExpression(evaluatedModuleName, arguments.event, propertyManager) />
 			</cfif>
 
-			<cfset redirectUrl = arguments.eventContext.getAppManager().getRequestManager().buildUrl(evaluatedModuleName, evaluatedEventName, params, evaluatedUrl) />
-		</cfif>
+			<cfset getLog().info("Redirecting to event '#evaluatedEventName#' in module '#evaluatedModuleName#' with '#statusType#' status code (persist='#getPersist()#').") />
 
-		<cfreturn redirectUrl />
+			<cfset arguments.eventContext.getAppManager().getRequestManager().getRequestHandler().getEventContext().redirectEvent(
+					evaluatedEventName
+					, params
+					, evaluatedModuleName
+					, getPersist()
+					, persistArgs
+					, getStatusType()
+					, evaluatedUrl) />
+		</cfif>
 	</cffunction>
 
-	<cffunction name="savePersistEventData" access="private" returntype="void" output="false"
+	<cffunction name="buildPersistEventData" access="private" returntype="struct" output="false"
 		hint="Saves persisted event data and returns the persistId.">
 		<cfargument name="event" type="MachII.framework.Event" required="true" />
 		<cfargument name="eventContext" type="MachII.framework.EventContext" required="true" />
@@ -251,21 +255,15 @@ Notes:
 					<cfset args[i] = arg />
 				<cfelse>
 					<cfif expressionEvaluator.isExpression(i)>
-						<cfset arg = expressionEvaluator.evaluateExpression(i, arguments.event, propertyManager) />
+						<cfset args[i] = expressionEvaluator.evaluateExpression(i, arguments.event, propertyManager) />
 					<cfelseif arguments.event.isArgDefined(i)>
-						<cfset arg = arguments.event.getArg(i, "") />
+						<cfset args[i] = arguments.event.getArg(i, "") />
 					</cfif>
-					<cfset args[i] = arg />
 				</cfif>
 			</cfloop>
 		</cfif>
 
-		<!--- Delete the event name from the args if it exists so a redirect loop doesn't occur --->
-		<cfset StructDelete(args, propertyManager.getProperty("eventParameter"), FALSE) />
-
-		<!--- Save the data --->
-		<cfset persistId = arguments.eventContext.getAppManager().getRequestManager().savePersistEventData(args) />
-		<cfset arguments.event.setArg(propertyManager.getProperty("redirectPersistParameter"), persistId) />
+		<cfreturn args />
 	</cffunction>
 
 	<!---

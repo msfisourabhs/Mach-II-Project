@@ -42,7 +42,7 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: form.cfm 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.8.0
 Updated version: 1.8.0
@@ -106,11 +106,18 @@ Notes:
 	<!--- Add event attributes specific to form tag --->
 	<cfset setAttributeIfDefined("onsubmit") />
 	<cfset setAttributeIfDefined("onreset") />
-
 	</cfsilent>
-	<cfoutput>#doStartTag()#</cfoutput>
 <cfelse>
-	<cfoutput>#doEndTag()#</cfoutput>
+	<cfset setContent(thisTag.GeneratedContent) />
+	<cfset thisTag.GeneratedContent = "" />
+
+	<cfif IsDefined("request._MachIIFormLib.hasFileTag") AND request._MachIIFormLib.hasFileTag>
+		<cfset setAttribute("enctype", "multipart/form-data") />
+		<cfset setAttribute("method", "post") />
+	</cfif>
+
+	<cfoutput>#doStartTag()##doEndTag()#</cfoutput>
+
 	<cfif NOT IsBoolean(attributes.autoFocus)
 		OR (IsBoolean(attributes.autoFocus) AND attributes.autoFocus)>
 
@@ -126,13 +133,16 @@ Notes:
 				We use the window._MachIIFormLib_autoFocusOccurred so two
 				forms on a page won't steal an auto-focus
 			--->
-			<cfimport prefix="view" taglib="/MachII/customtags/view" />
-			<cfoutput><view:script outputType="inline">
+			<cfoutput><script type="text/javascript">
 				if (window._MachIIFormLib_autoFocusOccurred !== 'undefined') {
-					document.getElementById('#attributes.autoFocus#').focus();
-					window._MachIIFormLib_autoFocusOccurred = true;
+					try {
+						document.getElementById('#attributes.autoFocus#').focus();
+						window._MachIIFormLib_autoFocusOccurred = true;
+					} catch(e) {
+						// Do nothing. Element is hidden and not focusable.
+					}
 				}
-			</view:script></cfoutput>
+			</script></cfoutput>
 		</cfif>
 	</cfif>
 

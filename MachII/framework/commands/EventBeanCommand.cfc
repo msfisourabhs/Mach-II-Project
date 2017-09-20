@@ -41,7 +41,7 @@
 	interfaces).
 
 Author: Ben Edwards (ben@ben-edwards.com)
-$Id: EventBeanCommand.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.0.6
 Updated version: 1.8.0
@@ -107,9 +107,7 @@ Notes:
 
 		<!--- If reinit is FALSE, get the bean from the event --->
 		<cfif NOT getReinit() AND arguments.event.isArgDefined(getBeanName()) AND IsObject(arguments.event.getArg(getBeanName()))>
-			<cfif log.isDebugEnabled()>
-				<cfset log.debug("Event-bean '#getBeanName()#' already in event. Repopulated with data. Fields: '#getBeanFields()#', Ignored Fields: '#getIgnoreFields()#'") />
-			</cfif>
+			<cfset log.debug("Event-bean '#getBeanName()#' already in event. Repopulated with data. Fields: '#getBeanFields()#', Ignored Fields: '#getIgnoreFields()#'") />
 
 			<cfset bean = arguments.event.getArg(getBeanName()) />
 
@@ -119,9 +117,7 @@ Notes:
 				<cfset getBeanUtil().setBeanAutoFields(bean, arguments.event.getArgs(), "", getIgnoreFields()) />
 			</cfif>
 		<cfelse>
-			<cfif log.isDebugEnabled()>
-				<cfset log.debug("Event-bean '#getBeanName()#' created and populated with data. Fields:'#getBeanFields()#', Ignored Fields: '#getIgnoreFields()#'") />
-			</cfif>
+			<cfset log.debug("Event-bean '#getBeanName()#' created and populated with data. Fields:'#getBeanFields()#', Ignored Fields: '#getIgnoreFields()#'") />
 
 			<cfif isBeanFieldsDefined()>
 				<cfset bean = getBeanUtil().createBean(getBeanType()) />
@@ -195,9 +191,7 @@ Notes:
 			<cfset processFieldsWithValues(innerBean, innerBeanInfo, arguments.event, arguments.eventContext) />
 		</cfif>
 
-		<cfif log.isDebugEnabled()>
-			<cfset log.debug("Inner-bean '#innerBeanInfo.getName()#' with prefix '#innerBeanInfo.getPrefix()#' from event-bean '#getBeanName()#' populated with data.") />
-		</cfif>
+		<cfset log.debug("Inner-bean '#innerBeanInfo.getName()#' with prefix '#innerBeanInfo.getPrefix()#' from event-bean '#getBeanName()#' populated with data.") />
 
 		<!--- Handle innerBeans which have innerBeans --->
 		<cfloop list="#arguments.innerBeanInfo.getInnerBeanNames()#" index="innerBeanName">

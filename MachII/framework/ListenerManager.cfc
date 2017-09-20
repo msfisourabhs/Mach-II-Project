@@ -41,7 +41,7 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: ListenerManager.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.0.0
 Updated version: 1.8.0
@@ -60,6 +60,7 @@ Notes:
 	<cfset variables.parentListenerManager = "" />
 	<cfset variables.defaultInvoker = "" />
 	<cfset variables.listenerProxies = StructNew() />
+	<cfset variables.baseProxyTarget = "" />
 
 	<!---
 	INITIALIZATION / CONFIGURATION
@@ -76,6 +77,9 @@ Notes:
 		<cfelse>
 			<cfset setDefaultInvoker(CreateObject("component", "MachII.framework.invokers.EventInvoker").init()) />
 		</cfif>
+
+		<!--- Setup for duplicate for performance --->
+		<cfset variables.baseProxyTarget = CreateObject("component",  "MachII.framework.BaseProxy") />
 
 		<cfreturn this />
 	</cffunction>
@@ -213,7 +217,7 @@ Notes:
 				<!--- Continue setup on the Listener --->
 				<cfset listener.setInvoker(invoker) />
 
-				<cfset baseProxy = CreateObject("component",  "MachII.framework.BaseProxy").init(listener, listenerType, listenerParams) />
+				<cfset baseProxy = Duplicate(variables.baseProxyTarget).init(listener, listenerType, listenerParams) />
 				<cfset listener.setProxy(baseProxy) />
 
 				<!--- Add the Listener to the manager --->
@@ -259,7 +263,7 @@ Notes:
 
 		<cfif isListenerDefined(arguments.listenerName)>
 			<cfreturn variables.listenerProxies[arguments.listenerName].getObject() />
-		<cfelseif IsObject(getParent()) AND getParent().isListenerDefined(arguments.listenerName)>
+		<cfelseif IsObject(getParent())>
 			<cfreturn getParent().getListener(arguments.listenerName) />
 		<cfelse>
 			<cfthrow type="MachII.framework.ListenerNotDefined"

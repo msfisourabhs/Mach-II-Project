@@ -42,10 +42,10 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: options.cfm 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.8.0
-Updated version: 1.8.1
+Updated version: 1.9.0
 
 Notes:
 - REQUIRED ATTRIBUTES
@@ -92,7 +92,8 @@ Notes:
 		Create an option template because calling the options tag repeatedly
 		on a huge number of items is exponentially slow
 	--->
-	<form:option value="${output.value}"
+	<form:option attributeCollection="#attributes#"
+		value="${output.value}"
 		label="${output.label}"
 		id="#getParentTagAttribute("select", "id")#_${output.id}"
 		checkValue=""
@@ -100,7 +101,7 @@ Notes:
 		outputBuffer="#variables.outputBuffer#" />
 
 	<cfset variables.optionTemplate = variables.outputBuffer.content />
-	<cfset variables.outputBuffer.content = "" />
+	<cfset variables.outputBuffer.content = CreateObject("java", "java.lang.StringBuffer").init() />
 
 	<cfif IsSimpleValue(attributes.items)>
 		<cfif NOT StructKeyExists(attributes, "labels")>
@@ -108,7 +109,7 @@ Notes:
 		</cfif>
 
 		<cfloop index="i" from="1" to="#ListLen(attributes.items, attributes.delimiter)#">
-			<cfset variables.value = LCase(Trim(ListGetAt(attributes.items, i, attributes.delimiter))) />
+			<cfset variables.value = Trim(ListGetAt(attributes.items, i, attributes.delimiter)) />
 
 			<cfset variables.option = ReplaceNoCase(variables.optionTemplate, "${output.value}", variables.value, "all") />
 			<cfset variables.option = ReplaceNoCase(variables.option, "${output.id}", createCleanId(variables.value), "all") />
@@ -117,22 +118,22 @@ Notes:
 				<cfset variables.option = ReplaceNoCase(variables.option, '>', ' selected="selected">', "one") />
 			</cfif>
 
-			<cfset variables.outputBuffer.content = variables.outputBuffer.content & variables.option />
+			<cfset variables.outputBuffer.content.append(variables.option) />
 		</cfloop>
 	<cfelseif IsStruct(attributes.items)>
-		<cfset variables.itemOrder = sortStructByDisplayOrder(attributes.items, attributes.displayOrder) />
+		<cfset variables.sortedKeys = sortStructByDisplayOrder(attributes.items, attributes.displayOrder) />
 
-		<cfloop from="1" to="#ArrayLen(variables.itemOrder)#" index="i">
-			<cfset variables.value = LCase(variables.itemOrder[i]) />
+		<cfloop from="1" to="#ArrayLen(variables.sortedKeys)#" index="i">
+			<cfset variables.value = variables.sortedKeys[i] />
 
 			<cfset variables.option = ReplaceNoCase(variables.optionTemplate, "${output.value}", variables.value, "all") />
-			<cfset variables.option = ReplaceNoCase(variables.option, "${output.id}", createCleanId(variables.value), "all") />
-			<cfset variables.option = ReplaceNoCase(variables.option, "${output.label}", variables.utils.escapeHtml(attributes.items[variables.itemOrder[i]]), "one") />
-			<cfif ListFindNoCase(variables.checkValues, variables.itemOrder[i], variables.checkValueDelimiter)>
+			<cfset variables.option = ReplaceNoCase(variables.option, "${output.id}", createCleanId(LCase(variables.value)), "all") />
+			<cfset variables.option = ReplaceNoCase(variables.option, "${output.label}", variables.utils.escapeHtml(attributes.items[variables.sortedKeys[i]]), "one") />
+			<cfif ListFindNoCase(variables.checkValues, variables.sortedKeys[i], variables.checkValueDelimiter)>
 				<cfset variables.option = ReplaceNoCase(variables.option, '>', ' selected="selected">', "one") />
 			</cfif>
 
-			<cfset variables.outputBuffer.content = variables.outputBuffer.content & variables.option />
+			<cfset variables.outputBuffer.content.append(variables.option) />
 		</cfloop>
 	<cfelseif IsArray(attributes.items)>
 		<cfif attributes.items.getDimension() EQ 1>
@@ -140,7 +141,7 @@ Notes:
 			<cfif IsSimpleValue(attributes.items[1])>
 				<!--- this is an array of simple values, proceed as needed --->
 				<cfloop from="1" to="#ArrayLen(attributes.items)#" index="i">
-					<cfset variables.value = LCase(attributes.items[i]) />
+					<cfset variables.value = attributes.items[i] />
 
 					<cfset variables.option = ReplaceNoCase(variables.optionTemplate, "${output.value}", variables.value, "all") />
 					<cfset variables.option = ReplaceNoCase(variables.option, "${output.id}", createCleanId(variables.value), "all") />
@@ -149,7 +150,7 @@ Notes:
 						<cfset variables.option = ReplaceNoCase(variables.option, '>', ' selected="selected">', "one") />
 					</cfif>
 
-					<cfset variables.outputBuffer.content = variables.outputBuffer.content & variables.option />
+					<cfset variables.outputBuffer.content.append(variables.option) />
 				</cfloop>
 			<cfelseif IsStruct(attributes.items[1])>
 				<!--- each array node contains a struct of elements, determine if the proper struct keys exist --->
@@ -158,44 +159,60 @@ Notes:
 						<cfset variables.value = attributes.items[i][attributes.valueKey] />
 
 						<cfset variables.option = ReplaceNoCase(variables.optionTemplate, "${output.value}", variables.value, "all") />
-						<cfset variables.option = ReplaceNoCase(variables.option, "${output.id}", createCleanId(variables.value), "all") />
+						<cfset variables.option = ReplaceNoCase(variables.option, "${output.id}", createCleanId(LCase(variables.value)), "all") />
 						<cfset variables.option = ReplaceNoCase(variables.option, "${output.label}", variables.utils.escapeHtml(attributes.items[i][attributes.labelKey]), "one") />
 						<cfif ListFindNoCase(variables.checkValues, attributes.items[i][attributes.valueKey], variables.checkValueDelimiter)>
 							<cfset variables.option = ReplaceNoCase(variables.option, '>', ' selected="selected">', "one") />
 						</cfif>
 
-						<cfset variables.outputBuffer.content = variables.outputBuffer.content & variables.option />
+						<cfset variables.outputBuffer.content.append(variables.option) />
 					</cfloop>
 				<cfelse>
 					<!--- either the valueCol or lableCol attributes were not found in the structure, throw an error --->
-					<cfthrow type="MachII.customtags.form.options.unsupportedItemsDatatype"
+					<cfthrow type="MachII.customtags.form.#getTagType()#.unsupportedItemsDatatype"
 							message="Missing struct key values"
-							detail="The options form tag supports an array of struct elements, however the valueKey and labelKey attributes do not match the struct keys contained in the first array element." />
+							detail="The #getTagType()# form tag supports an array of struct elements, however the valueKey and labelKey attributes do not match the struct keys contained in the first array element." />
 				</cfif>
 			<cfelse>
 				<cfthrow type="MachII.customtags.form.options.unsupportedItemsDatatype"
 						message="Unsupported Data Type in Array"
-						detail="The options form tag only supports simple values or structs as array elements." />
+						detail="The #getTagType()# form tag only supports simple values or structs as array elements." />
 			</cfif>
 		<cfelse>
 			<!--- only single dimension arrays are support, throw an exception for the multi-dimensional array passed --->
-			<cfthrow type="MachII.customtags.form.options.unsupportedItemsDatatype"
-					message="Unsupported Number of Array Dimensions in Options Tag"
-					detail="The options form tag only supports arrays of 1 dimension. Array values may be either simple values or structs. The array you passed to the tag as the items attribute is #attributes.items.getDimension()# dimensions." />
+			<cfthrow type="MachII.customtags.form.#getTagType()#.unsupportedItemsDatatype"
+					message="Unsupported Number of Array Dimensions"
+					detail="The #getTagType()# form tag only supports arrays of 1 dimension. Array values may be either simple values or structs. The array you passed to the tag as the items attribute is #attributes.items.getDimension()# dimensions." />
 		</cfif>
 	<cfelseif IsQuery(attributes.items)>
-		<cfloop query="attributes.items">
-			<cfset variables.value = attributes.items[attributes.valueCol][attributes.items.currentRow] />
+		<cftry>
+			<cfloop query="attributes.items">
+				<cfset variables.value = attributes.items[attributes.valueCol][attributes.items.currentRow] />
 
-			<cfset variables.option = ReplaceNoCase(variables.optionTemplate, "${output.value}", variables.value, "all") />
-			<cfset variables.option = ReplaceNoCase(variables.option, "${output.id}", createCleanId(variables.value), "all") />
-			<cfset variables.option = ReplaceNoCase(variables.option, "${output.label}", variables.utils.escapeHtml(attributes.items[attributes.labelCol][attributes.items.currentRow]), "one") />
-			<cfif ListFindNoCase(variables.checkValues, attributes.items[attributes.valueCol][attributes.items.currentRow], variables.checkValueDelimiter)>
-				<cfset variables.option = ReplaceNoCase(variables.option, '>', ' selected="selected">', "one") />
-			</cfif>
+				<cfset variables.option = ReplaceNoCase(variables.optionTemplate, "${output.value}", variables.value, "all") />
+				<cfset variables.option = ReplaceNoCase(variables.option, "${output.id}", createCleanId(variables.value), "all") />
+				<cfset variables.option = ReplaceNoCase(variables.option, "${output.label}", variables.utils.escapeHtml(attributes.items[attributes.labelCol][attributes.items.currentRow]), "one") />
+				<cfif ListFindNoCase(variables.checkValues, attributes.items[attributes.valueCol][attributes.items.currentRow], variables.checkValueDelimiter)>
+					<cfset variables.option = ReplaceNoCase(variables.option, '>', ' selected="selected">', "one") />
+				</cfif>
 
-			<cfset variables.outputBuffer.content = variables.outputBuffer.content & variables.option />
-		</cfloop>
+				<cfset variables.outputBuffer.content.append(variables.option) />
+			</cfloop>
+			<cfcatch type="any">
+				<!--- Allow failure and check for type instead of pre-checking for possible exception before --->
+				<cfif NOT ListFindNoCase(attributes.items.columnList, attributes.valueCol)>
+					<cfthrow type="MachII.customtags.form.#getTagType()#.unsupportedItemsValueCol"
+							message="The query passed to the #getTagType()# Tag does not have a valueCol named '#attributes.valueCol#'."
+							detail="Available columns: #attributes.items.columnList#." />
+				<cfelseif NOT ListFindNoCase(attributes.items.columnList, attributes.labelCol)>
+					<cfthrow type="MachII.customtags.form.#getTagType()#.unsupportedItemsLabelCol"
+							message="The query passed to the #getTagType()# Tag does not have a labelCol named '#attributes.labelCol#'."
+							detail="Available columns: #attributes.items.columnList#." />
+				<cfelse>
+					<cfrethrow />
+				</cfif>
+			</cfcatch>
+		</cftry>
 	<cfelse>
 		<cfthrow type="MachII.customtags.form.#getTagType()#"
 			message="The 'items' attribute for #getTagType()# custom tag does not support the passed datatype."
@@ -204,9 +221,9 @@ Notes:
 
 	<cfif attributes.output>
 		<cfset thisTag.GeneratedContent = "" />
-		<cfset appendGeneratedContentToBuffer(variables.outputBuffer.content, attributes.outputBuffer) />
+		<cfset appendGeneratedContentToBuffer(variables.outputBuffer.content.toString(), attributes.outputBuffer) />
 	<cfelse>
-		<cfset thisTag.GeneratedContent = variables.outputBuffer.content />
+		<cfset thisTag.GeneratedContent = variables.outputBuffer.content.toString() />
 	</cfif>
 </cfif>
 </cfsilent><cfsetting enablecfoutputonly="false" />

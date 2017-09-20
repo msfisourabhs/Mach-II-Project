@@ -38,10 +38,10 @@
 	* An independent module is a module which not derived from or based on
 	this library with the exception of independent module components that
 	extend certain Mach-II public interfaces (see README for list of public
-	interfaces).s
+	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: UtilityConnector.cfc 2301 2010-08-05 23:43:36Z peterjfarrell $
+$Id: $
 
 Created version: 1.6.0
 Updated version: 1.8.0
@@ -91,12 +91,20 @@ Do not inject the UtilityConnector into beans, use the 'factory' like methods in
 	INITIALIZATION / CONFIGURATION
 	--->
 	<cffunction name="init" access="public" returntype="UtilityConnector" output="false"
-		hint="Initializes the connector. The AppManager is wired in by the ColdSpringProperty">
+		hint="Initializes the connector. The AppManager is wired in by the ColdSpringProperty.">
 		<cfreturn this />
 	</cffunction>
 
 	<!---
-	PUBLIC FUNCTIONS
+	PUBLIC FUNCTIONS - THREADING
+	--->
+	<cffunction name="getThreadingAdapter" access="public" returntype="MachII.util.Threading.ThreadingAdapter" output="false"
+		hint="Gets the threading adapter.">
+		<cfreturn getAppManager().getUtils().createThreadingAdapter() />
+	</cffunction>
+
+	<!---
+	PUBLIC FUNCTIONS - ENVIRONMENT
 	--->
 	<cffunction name="getEnvironmentName" access="public" returntype="string" output="false"
 		hint="Gets the environment name.">
@@ -108,6 +116,23 @@ Do not inject the UtilityConnector into beans, use the 'factory' like methods in
 		<cfreturn getAppManager().getEnvironmentGroup() />
 	</cffunction>
 
+	<cffunction name="inEnvironmentGroup" access="public" returntype="boolean" output="false"
+		hint="Checks if the current environment group matches the passed list/array of groups.">
+		<cfargument name="environmentGroup" type="any" required="true"
+			hint="A comma-delimited list or array of groups to use for matching." />
+		<cfreturn getAppManager().inEnvironmentGroup(arguments.environmentGroup) />
+	</cffunction>
+
+	<cffunction name="inEnvironmentName" access="public" returntype="boolean" output="false"
+		hint="Checks if the current environment name matches the passed list/array of names.">
+		<cfargument name="environmentName" type="any" required="true"
+			hint="A comma-delimited list or array of names to use for matching." />
+		<cfreturn getAppManager().inEnvironmentName(arguments.environmentName) />
+	</cffunction>
+
+	<!---
+	PUBLIC FUNCTIONS - LOG
+	--->
 	<cffunction name="getLogFactory" access="public" returntype="MachII.logging.LogFactory" output="false"
 		hint="Gets the LogFactory.">
 		<cfreturn getAppManager().getLogFactory() />
@@ -117,9 +142,12 @@ Do not inject the UtilityConnector into beans, use the 'factory' like methods in
 		hints="Returns a log with the specified channel.">
 		<cfargument name="channelName" type="string" required="true"
 			hint="Channel to log. Usually the dot path to the CFC." />
-		<cfreturn getLogFactory.getLog(arguments.channelName) />
+		<cfreturn getLogFactory().getLog(arguments.channelName) />
 	</cffunction>
 
+	<!---
+	PUBLIC FUNCTIONS - CACHE
+	--->
 	<cffunction name="getCacheStrategyManager" access="public" returntype="MachII.caching.CacheStrategyManager" output="false"
 		hint="Gets the CacheStrategyManager.">
 		<cfreturn getAppManager().getCacheManager().getCacheStrategyManager() />
@@ -134,6 +162,9 @@ Do not inject the UtilityConnector into beans, use the 'factory' like methods in
 		<cfreturn getCacheStrategyManager().getCacheStrategyByName(arguments.name, arguments.checkParent) />
 	</cffunction>
 
+	<!---
+	PUBLIC FUNCTIONS - URL
+	--->
 	<cffunction name="buildUrl" access="public" returntype="string" output="false"
 		hint="Builds a framework specific url.">
 		<cfargument name="moduleName" type="string" required="true"
@@ -158,6 +189,15 @@ Do not inject the UtilityConnector into beans, use the 'factory' like methods in
 		<cfargument name="urlBase" type="string" required="false"
 			hint="Base of the url. Defaults to the value of the urlBase property." />
 		<cfreturn getAppManager().getRequestManager().buildRouteUrl(argumentcollection=arguments) />
+	</cffunction>
+
+	<cffunction name="buildEndpointUrl" access="public" returntype="string" output="false"
+		hint="Builds an endpoint specific url.">
+		<cfargument name="endpointName" type="string" required="true"
+			hint="Name of the target endpoint." />
+		<cfargument name="urlParameters" type="any" required="false" default=""
+			hint="Name/value pairs (urlArg1=value1|urlArg2=value2) to build the url with or a struct of data." />
+		<cfreturn getAppManager().getEndpointManager().buildEndpointUrl(argumentcollection=arguments) />
 	</cffunction>
 
 	<!---

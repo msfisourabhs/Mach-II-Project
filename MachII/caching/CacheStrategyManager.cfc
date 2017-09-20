@@ -41,10 +41,9 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: CacheStats.cfc 701 2008-03-22 22:07:01Z peterfarrell $
 
 Created version: 1.6.0
-Updated version: 1.8.0
+Updated version: 1.9.0
 
 Notes:
 --->
@@ -61,6 +60,7 @@ Notes:
 
 	<cfset variables.CACHE_STRATEGIES_SHORTCUTS = StructNew() />
 	<cfset variables.CACHE_STRATEGIES_SHORTCUTS["TimeSpanCache"] = "MachII.caching.strategies.TimeSpanCache" />
+	<cfset variables.CACHE_STRATEGIES_SHORTCUTS["TimeSpanNativeCfmlCache"] = "MachII.caching.strategies.TimeSpanNativeCfmlCache" />
 	<cfset variables.CACHE_STRATEGIES_SHORTCUTS["LRUCache"] = "MachII.caching.strategies.LRUCache" />
 
 	<!---
@@ -135,7 +135,25 @@ Notes:
 			<cfthrow type="MachII.caching.CacheStrategyAlreadyDefined"
 				message="A Cache Strategy with name '#arguments.cacheStrategyName#' is already registered." />
 		<cfelse>
-			<cfset variables.cacheStrategies[arguments.cacheStrategyName] = cacheStrategy />
+			<cfset variables.cacheStrategies[arguments.cacheStrategyName] = arguments.cacheStrategy />
+		</cfif>
+	</cffunction>
+
+	<cffunction name="removeCacheStrategy" access="public" returntype="void" output="false"
+		hint="Removes a cache strategy with the specified name.">
+		<cfargument name="cacheStrategyName" type="string" required="true"
+			hint="The name of the cache stategy to get." />
+		<cfargument name="checkParent" type="boolean" required="false" default="false"
+			hint="Flag to check parent strategy manager." />
+
+		<cfif isCacheStrategyDefined(arguments.cacheStrategyName)>
+			<cfset StructDelete(variables.cacheStrategies, arguments.cacheStrategyName, false) />
+		<cfelseif arguments.checkParent AND IsObject(getParent()) AND getParent().isCacheStrategyDefined(arguments.cacheStrategyName)>
+			<cfreturn getParent().removeCacheStrategy(arguments.cacheStrategyName, arguments.checkParent) />
+		<cfelse>
+			<cfthrow type="MachII.caching.CacheStrategyNotDefined"
+				message="Cache strategy with name '#arguments.cacheStrategyName#' is not defined and cannot be removed from the strategy manager."
+				detail="Available cache strategies: '#ArrayToList(getCacheStrategyNames())#'" />
 		</cfif>
 	</cffunction>
 
@@ -235,8 +253,21 @@ Notes:
 	</cffunction>
 
 	<cffunction name="getCacheStrategies" access="public" returntype="struct" output="false"
-		hint="Gets all registered cache strategies for this manager. Does NOT get strategies from a parent manager.">
-		<cfreturn variables.cacheStrategies />
+		hint="Gets all registered cache strategies for this manager. Does NOT get strategies from a parent manager unless requested and available.">
+		<cfargument name="checkParent" type="boolean" required="false" default="false"
+			hint="Get checks the parent if available and merges with child strategies taking precendence." />
+
+		<cfset var strategies = StructNew() />
+
+		<cfif arguments.checkParent AND IsObject(getParent())>
+			<!--- Append the local strategies to an empty struct so we do not pollute the local strategies with the parent --->
+			<cfset StructAppend(strategies, variables.cacheStrategies) />
+			<cfset StructAppend(strategies, getParent().getCacheStrategies(), "false") />
+		<cfelse>
+			<cfset strategies = variables.cacheStrategies />
+		</cfif>
+
+		<cfreturn strategies />
 	</cffunction>
 
 	<cffunction name="getCacheStrategyNames" access="public" returntype="array" output="false"

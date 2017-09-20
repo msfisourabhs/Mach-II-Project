@@ -40,7 +40,7 @@
 	extend certain Mach-II public interfaces (see README for list of public
 	interfaces).
 
-$Id: EventFilterManager.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.0.0
 Updated version: 1.8.0
@@ -58,6 +58,7 @@ Notes:
 	<cfset variables.appManager = "" />
 	<cfset variables.parentFilterManager = "" />
 	<cfset variables.filterProxies = StructNew() />
+	<cfset variables.baseProxyTarget = "" />
 
 	<!---
 	INITIALIZATION / CONFIGURATION
@@ -71,6 +72,9 @@ Notes:
 		<cfif getAppManager().inModule()>
 			<cfset setParent(getAppManager().getParent().getFilterManager()) />
 		</cfif>
+
+		<!--- Setup for duplicate for performance --->
+		<cfset variables.baseProxyTarget = CreateObject("component",  "MachII.framework.BaseProxy") />
 
 		<cfreturn this />
 	</cffunction>
@@ -172,7 +176,7 @@ Notes:
 					</cfcatch>
 				</cftry>
 
-				<cfset baseProxy = CreateObject("component",  "MachII.framework.BaseProxy").init(filter, filterType, filterParams) />
+				<cfset baseProxy = Duplicate(variables.baseProxyTarget).init(filter, filterType, filterParams) />
 				<cfset filter.setProxy(baseProxy) />
 
 				<cfset addFilter(filterName, filter, arguments.override) />
@@ -228,7 +232,7 @@ Notes:
 
 		<cfif isFilterDefined(arguments.filterName)>
 			<cfreturn variables.filterProxies[arguments.filterName].getObject() />
-		<cfelseif IsObject(getParent()) AND getParent().isFilterDefined(arguments.filterName)>
+		<cfelseif IsObject(getParent())>
 			<cfreturn getParent().getFilter(arguments.filterName) />
 		<cfelse>
 			<cfthrow type="MachII.framework.FilterNotDefined"

@@ -41,7 +41,7 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: UtilsTest.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.6.0
 Updated version: 1.6.0
@@ -165,12 +165,100 @@ Notes:
 		<cfset var comparisonList = "apples,oranges,pears" />
 		<cfset var returnedList = variables.utils.trimList(" apples, oranges ,pears ") />
 		
-		<cfset assertTrue(returnedList EQ comparisonList) />
+		<cfset assertEquals(returnedList, comparisonList) />
 	</cffunction>
 	
 	<cffunction name="testEscapeHtml" access="public" returntype="void" output="false"
 		hint="Test escapeHtml().">
 		<cfset assertTrue(Compare(variables.utils.escapeHtml("< > Planchers de bambou, li&egrave;ge, ch&ecirc;ne FSC, &eacute;rable FSC, pin et eucalyptus &eacute;cologiques et durables &&& Peter&Matt"), "&lt; &gt; Planchers de bambou, li&egrave;ge, ch&ecirc;ne FSC, &eacute;rable FSC, pin et eucalyptus &eacute;cologiques et durables &amp;&amp;&amp; Peter&amp;Matt") EQ 0) />
+	</cffunction>
+	
+	<cffunction name="testGetMimeTypeByFileExtension" access="public" returntype="void" output="false"
+		hint="Test getMimeTypeByFileExtension()">
+		
+		<!--- Test single --->
+		<cfset assertEquals(variables.utils.getMimeTypeByFileExtension(".jpg,"), "image/jpeg") />
+		
+		<!--- Test mixed file extensions and mime types --->
+		<cfset assertEquals(variables.utils.getMimeTypeByFileExtension(".jpg,.gif,.zip,audio/x-wav"), "image/jpeg,image/gif,application/x-gzip,audio/x-wav") />
+
+		<!--- Test mixed file extensions as array and mime types --->
+		<cfset assertEquals(variables.utils.getMimeTypeByFileExtension(['.jpg','.gif','.zip','audio/x-wav']), "image/jpeg,image/gif,application/x-gzip,audio/x-wav") />
+
+		<!--- Test treat all as file extensions (with or without '.' dots) --->
+		<cfset assertEquals(variables.utils.getMimeTypeByFileExtension(".jpg,.gif,.zip,htm,html", StructNew(), true), "image/jpeg,image/gif,application/x-gzip,text/html,text/html") />
+	</cffunction>
+
+	<cffunction name="testCleanPathInfo" access="public" returntype="void" output="false"
+		hint="Test cleanPathInfo()">
+		<!--- Check for URL decoding "/test/../something"--->
+		<cfset assertEquals("/test/../something", variables.utils.cleanPathInfo("/test/%2e%2e/something", "")) />
+		<!--- Check that IIS6 bug "/index.cfm/test/something" --->
+		<cfset assertEquals("/test/something", variables.utils.cleanPathInfo("index.cfm/test/something", "index.cfm")) />
+		<!--- Check to see if URL decoding is off --->
+		<cfset assertEquals("/test/%2e%2e/something", variables.utils.cleanPathInfo("/test/%2e%2e/something", "", false)) />
+	</cffunction>
+	
+	<cffunction name="testCreateDatetimeFromHttpTimeString" access="public" returntype="void" output="false"
+		hint="Test createDatetimeFromHttpTimeString()">
+		<cfset assertEquals(CreateDateTime("2010", "8", "11", "17", "58", "48"), variables.utils.createDatetimeFromHttpTimeString("11 Aug 2010 17:58:48 GMT")) />
+	</cffunction>
+
+	<cffunction name="testConvertTimespanStringToSeconds" access="public" returntype="void" output="false"
+		hint="Test convertTimespanStringToSeconds()">
+		<!--- Zero --->
+		<cfset assertEquals(0, variables.utils.convertTimespanStringToSeconds("0,0,0,0")) />
+		<!--- Minute --->
+		<cfset assertEquals(60, variables.utils.convertTimespanStringToSeconds("0,0,1,0")) />
+		<!--- Hour --->
+		<cfset assertEquals(3600, variables.utils.convertTimespanStringToSeconds("0,1,0,0")) />
+		<!--- Day --->
+		<cfset assertEquals(86400, variables.utils.convertTimespanStringToSeconds("1,0,0,0")) />
+		<!--- Year --->
+		<cfset assertEquals(31536000, variables.utils.convertTimespanStringToSeconds("365,0,0,0")) />
+	</cffunction>
+	
+	<cffunction name="testFilePathClean" access="public" returntype="void" output="false"
+		hint="Test filePathClean()">
+		<!--- Test ./ and ../ --->
+		<cfset assertEquals("/test/to/myfile.txt", variables.utils.filePathClean("/test/./../../to/../myfile.txt")) />
+		<!--- Test doubl // angled hockey sticks --->
+		<cfset assertEquals("/test/to/myfile.txt", variables.utils.filePathClean("/test/to//myfile.txt")) />
+		<!--- Test leading ./ --->
+		<cfset assertEquals("test/to/myfile.txt", variables.utils.filePathClean("./test/to/myfile.txt")) />
+		<!--- Test leading ../ --->
+		<cfset assertEquals("test/to/myfile.txt", variables.utils.filePathClean("../test/to/myfile.txt")) />
+	</cffunction>
+
+	<cffunction name="testGetHTTPHeaderStatusTextByStatusCode" access="public" returntype="void" output="false"
+		hint="Test getHTTPHeaderStatusTextByStatusCode()">
+		<cfset assertEquals("Not Modified", variables.utils.getHTTPHeaderStatusTextByStatusCode(304)) />
+		<cfset assertEquals("", variables.utils.getHTTPHeaderStatusTextByStatusCode(999)) />
+	</cffunction>
+	
+	<cffunction name="testLoadResourceData" access="public" returntype="void" output="false"
+		hint="Test loadResourceData()">
+		
+		<cfset var results = "" />
+		
+		<cfset results = variables.utils.loadResourceData("/MachII/tests/dummy/resource/simple.properties") />
+		
+		<cfset debug(results) />
+		
+		<cfset assertEquals(1, results.a) />
+		<cfset assertEquals(2, results.b) />
+		<cfset assertEquals(3, results.c) />
+		
+		<cfset results = variables.utils.loadResourceData("/MachII/tests/dummy/resource/complexValues.properties", "first,second,third") />
+		
+		<cfset debug(results) />
+
+		<cfset assertEquals(1, results.a.first) />
+		<cfset assertEquals(5, results.b.second) />
+		<cfset assertEquals(9, results.c.third) />
+		<cfset assertEquals(10, results.d.first) />
+		<cfset assertEquals("", results.d.second) />
+		
 	</cffunction>
 
 </cfcomponent>

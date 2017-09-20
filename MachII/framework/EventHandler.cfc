@@ -41,10 +41,10 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: EventHandler.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.0.0
-Updated version: 1.5.0
+Updated version: 1.9.0
 
 Notes:
 --->
@@ -58,6 +58,7 @@ Notes:
 	--->
 	<cfset variables.commands = ArrayNew(1) />
 	<cfset variables.access = "public" />
+	<cfset variables.secure = "none" />
 
 	<!---
 	INITIALIZATION / CONFIGURATION
@@ -65,8 +66,10 @@ Notes:
 	<cffunction name="init" access="public" returntype="EventHandler" output="false"
 		hint="Used by the framework for initialization. Do not override.">
 		<cfargument name="access" type="string" required="true" />
+		<cfargument name="secure" type="string" required="true" />
 
 		<cfset setAccess(arguments.access) />
+		<cfset setSecure(arguments.secure) />
 
 		<cfreturn this />
 	</cffunction>
@@ -107,6 +110,15 @@ Notes:
 	</cffunction>
 	<cffunction name="getAccess" access="public" returntype="string" output="false">
 		<cfreturn variables.access />
+	</cffunction>
+
+	<cffunction name="setSecure" access="public" returntype="void" output="false"
+		hint="Accepts 'none', 'secure' and 'insecure'.">
+		<cfargument name="secure" type="string" required="true" />
+		<cfset variables.secure = arguments.secure />
+	</cffunction>
+	<cffunction name="getSecure" access="public" returntype="string" output="false">
+		<cfreturn variables.secure />
 	</cffunction>
 
 </cfcomponent>

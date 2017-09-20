@@ -21,45 +21,37 @@
     conditions of the GNU General Public License cover the whole
     combination.
 
-	As a special exception, the copyright holders of this library give you 
-	permission to link this library with independent modules to produce an 
-	executable, regardless of the license terms of these independent 
-	modules, and to copy and distribute the resultant executable under 
-	the terms of your choice, provided that you also meet, for each linked 
+	As a special exception, the copyright holders of this library give you
+	permission to link this library with independent modules to produce an
+	executable, regardless of the license terms of these independent
+	modules, and to copy and distribute the resultant executable under
+	the terms of your choice, provided that you also meet, for each linked
 	independent module, the terms and conditions of the license of that
-	module.  An independent module is a module which is not derived from 
-	or based on this library and communicates with Mach-II solely through 
-	the public interfaces* (see definition below). If you modify this library, 
-	but you may extend this exception to your version of the library, 
-	but you are not obligated to do so. If you do not wish to do so, 
+	module.  An independent module is a module which is not derived from
+	or based on this library and communicates with Mach-II solely through
+	the public interfaces* (see definition below). If you modify this library,
+	but you may extend this exception to your version of the library,
+	but you are not obligated to do so. If you do not wish to do so,
 	delete this exception statement from your version.
 
 
-	* An independent module is a module which not derived from or based on 
-	this library with the exception of independent module components that 
-	extend certain Mach-II public interfaces (see README for list of public 
+	* An independent module is a module which not derived from or based on
+	this library with the exception of independent module components that
+	extend certain Mach-II public interfaces (see README for list of public
 	interfaces).
 
 Author: Peter J. Farrell(peter@mach-ii.com)
-$Id: BaseTagBuilderTest.cfc 2146 2010-03-07 17:04:36Z peterfarrell $
+$Id$
 
 Created version: 1.8.1
-Updated version: 1.8.1
+Updated version: 1.9.0
 
 Notes:
 --->
 <cfcomponent
 	displayname="SelectTest"
-	extends="mxunit.framework.TestCase"
-	hint="Test cases for 'select', 'option' and 'options' custom tags.">
-
-	<!---
-	PROPERTIES
-	--->
-	<cfset variables.appManager = "" />
-	<!--- This is a fake attributes scope --->
-	<cfset variables.attributes = StructNew() />
-	<cfset variables.included = false />
+	extends="FormTestCaseBase"
+	hint="Test cases for 'select', 'option', 'options' and 'optgroup' custom tags.">
 
 	<!---
 	INITIALIZATION / CONFIGURATION
@@ -67,53 +59,13 @@ Notes:
 	<cffunction name="setup" access="public" returntype="void" output="false"
 		hint="Logic to run to setup before each test case method.">
 
-		<cfset var propertyManager = "" />
-		<cfset var requestManager = "" />
-		<cfset var moduleManager = "" />
+		<cfset super.setup() />
 
-		<!--- Setup the AppManager with the required collaborators --->
-		<cfset variables.appManager = CreateObject("component", "MachII.framework.AppManager").init() />
-		<cfset variables.appManager.setAppKey("dummy") />
-
-		<!--- Setup the PropertyManager with the required collaboration data --->
-		<cfset propertyManager = CreateObject("component", "MachII.framework.PropertyManager").init(appManager) />
-		<cfset variables.appManager.setPropertyManager(propertyManager) />
-
-		<!--- Insert properties if needed here --->
-		<cfset propertyManager.setProperty("urlExcludeEventParameter", false) />
-		<cfset propertyManager.setProperty("urlDelimiters", "?|&|=") />
-		<cfset propertyManager.setProperty("redirectPersistScope", "application") />
-		<cfset propertyManager.setProperty("maxEvents", 10) />
-		<cfset propertyManager.setProperty("eventParameter", "event") />
-
-		<!--- Setup the RequestManager --->
-		<cfset requestManager =  CreateObject("component", "MachII.framework.RequestManager").init(appManager) />
-		<cfset variables.appManager.setRequestManager(requestManager) />
-
-		<!--- Setup the ModuleManager --->
-		<cfset moduleManager =  CreateObject("component", "MachII.framework.ModuleManager").init(appManager, "", "") />
-		<cfset variables.appManager.setModuleManager(moduleManager) />
-
-		<!--- Configure the managers --->
-		<cfset propertyManager.configure() />
-		<cfset requestManager.configure() />
-
-		<!--- Setup a fake request --->
-		<cfset requestManager = requestManager.getRequestHandler() />
-		<cfset request.event = CreateObject("component", "MachII.framework.Event").init() />
-		<cfset requestManager.getEventContext().setup(appManager, request.event) />
-
-		<!--- Include the tag library only once --->
+		<!--- Include the tag library only once and it cannot be done in the inherited CFC --->
 		<cfif NOT variables.included>
 			<cfimport prefix="form" taglib="/MachII/customtags/form" />
 			<cfset variables.included = true />
 		</cfif>
-	</cffunction>
-
-	<cffunction name="tearDown" access="public" returntype="void" output="false"
-		hint="Logic to run to tear down after each test case method.">
-		<!--- Reset the fake attributes struct --->
-		<cfset variables.attributes = StructNew() />
 	</cffunction>
 
 	<!---
@@ -141,7 +93,7 @@ Notes:
 		</cfsavecontent>
 
 		<cfset xml = XmlParse(output) />
-		<cfset node = assertXPath('/root/form/select/option[@value="red" and @id="favoriteColor_red" and @selected="selected" and "Red"]', xml) />
+		<cfset node = assertXPath('/root/form/select/option[@value="Red" and @id="favoriteColor_Red" and @selected="selected"]', xml, "Red") />
 		<cfset debug(node) />
 
 		<cfsavecontent variable="output">
@@ -155,7 +107,7 @@ Notes:
 		</cfsavecontent>
 
 		<cfset xml = XmlParse(output) />
-		<cfset node = assertXPath('/root/form/select/option[@value="red" and @id="favoriteColor_red" and @selected="selected" and "Big Red"]', xml) />
+		<cfset node = assertXPath('/root/form/select/option[@value="Red" and @id="favoriteColor_Red" and @selected="selected"]', xml, "Big Red") />
 		<cfset debug(node) />
 
 		<cfsavecontent variable="output">
@@ -175,7 +127,7 @@ Notes:
 		<cfset xml = XmlParse(output) />
 		<cfset debug(xml) />
 
-		<cfset node = assertXPath('/root/form/select/option[@value="Red" and @id="favoriteColor_Red" and @selected="selected" and "Big Red"]', xml) />
+		<cfset node = assertXPath('/root/form/select/option[@value="Red" and @id="favoriteColor_Red" and @selected="selected"]', xml, "Big Red") />
 		<cfset debug(node) />
 	</cffunction>
 
@@ -197,7 +149,7 @@ Notes:
 		<cfset colors.Pink =  "Precious Pink" />
 
 		<!--- Add data to the the bean and set to the event so we can do binding --->
-		<cfset bean.setFavoriteColor("red") />
+		<cfset bean.setFavoriteColor("Red") />
 		<cfset event.setArg("user", bean) />
 
 		<cfsavecontent variable="output">
@@ -209,7 +161,9 @@ Notes:
 		</cfsavecontent>
 
 		<cfset xml = XmlParse(output) />
-		<cfset node = assertXPath('/root/form/select/option[@value="red" and @id="favoriteColor_red" and @selected="selected" and "Big Red"]', xml) />
+		<cfset debug(output) />
+
+		<cfset node = assertXPath('/root/form/select/option[@value="#convertKeyCaseForComparison("Red")#" and @id="favoriteColor_red" and @selected="selected"]', xml, "Big Red") />
 		<cfset debug(node) />
 	</cffunction>
 
@@ -243,7 +197,7 @@ Notes:
 		</cfsavecontent>
 
 		<cfset xml = XmlParse(output) />
-		<cfset node = assertXPath('/root/form/select/option[@value="big red" and @id="favoriteColor_big_red" and @selected="selected" and "Big Red"]', xml) />
+		<cfset node = assertXPath('/root/form/select/option[@value="Big Red" and @id="favoriteColor_Big_Red" and @selected="selected"]', xml, "Big Red") />
 		<cfset debug(node) />
 
 		<!--- Test with array of structs --->
@@ -274,7 +228,7 @@ Notes:
 		</cfsavecontent>
 
 		<cfset xml = XmlParse(output) />
-		<cfset node = assertXPath('/root/form/select/option[@value="red" and @id="favoriteColor_red" and @selected="selected" and "Big Red"]', xml) />
+		<cfset node = assertXPath('/root/form/select/option[@value="red" and @id="favoriteColor_red" and @selected="selected"]', xml, "Big Red") />
 		<cfset debug(node) />
 	</cffunction>
 
@@ -309,8 +263,53 @@ Notes:
 		</cfsavecontent>
 
 		<cfset xml = XmlParse(output) />
-		<cfset node = assertXPath('/root/form/select/option[@value="red" and @id="favoriteColor_red" and @selected="selected" and "Big Red"]', xml) />
+		<cfset node = assertXPath('/root/form/select/option[@value="red" and @id="favoriteColor_red" and @selected="selected"]', xml, "Big Red") />
 		<cfset debug(node) />
+	</cffunction>
+
+	<cffunction name="testSelectAndOptGroup" access="public" returntype="void" output="false"
+		hint="Test basic 'select' and 'optgroup' tag.">
+
+		<cfset var output = "" />
+		<cfset var xml = "" />
+		<cfset var node = "" />
+		<cfset var bean = CreateObject("component", "MachII.tests.dummy.User").init() />
+		<cfset var event = variables.appManager.getRequestManager().getRequestHandler().getEventContext().getCurrentEvent() />
+		<cfset var colorsPrimary = StructNew() />
+		<cfset var colorsSecondary = StructNew() />
+
+		<!--- Build colors data --->
+		<cfset colorsPrimary.Red = "Big Red" />
+		<cfset colorsPrimary.Green = "Gian Green" />
+		<cfset colorsPrimary.Blue = "Beautiful Blue" />
+		<cfset colorsSecondary.Brown = "Bad Brown" />
+		<cfset colorsSecondary.Pink =  "Precious Pink" />
+
+		<!--- Add data to the the bean and set to the event so we can do binding --->
+		<cfset bean.setFavoriteColor("red") />
+		<cfset event.setArg("user", bean) />
+
+		<cfsavecontent variable="output">
+			<root>
+				<form:form actionEvent="something" bind="${event.user}">
+					<form:select path="favoriteColor" items="#colorsPrimary#">
+						<form:optgroup label="Primary Colors">
+							<form:options items="#colorsPrimary#" />
+						</form:optgroup>
+						<form:optgroup label="Secondary Colors">
+							<form:options items="#colorsSecondary#" />
+						</form:optgroup>
+					</form:select>
+				</form:form>
+			</root>
+		</cfsavecontent>
+
+		<cfset xml = XmlParse(output) />
+		<cfset debug(output) />
+
+		<cfset node = assertXPath('/root/form/select/optgroup/option[@value="#convertKeyCaseForComparison("Red")#" and @id="favoriteColor_red" and @selected="selected"]', xml, "Big Red") />
+		<cfset node = assertXPath('/root/form/select/optgroup/option[@value="#convertKeyCaseForComparison("Pink")#" and @id="favoriteColor_pink"]', xml, "Precious Pink") />
+		<cfset node = assertXPath('/root/form/select/optgroup[@label="Primary Colors"]', xml) />
 	</cffunction>
 
 </cfcomponent>

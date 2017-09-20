@@ -41,7 +41,7 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: Logger.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.6.0
 Updated version: 1.8.0
@@ -131,6 +131,7 @@ See that file header for configuration of filter criteria.
 	<cfset variables.instance.charset = "utf-8" />
 	<cfset variables.instance.spoolEnable = true />
 	<cfset variables.instance.timeout = 60 />
+	<cfset variables.instance.appendMessageToSubject = false />
 
 	<!---
 	INITIALIZATION / CONFIGURATION
@@ -177,6 +178,7 @@ See that file header for configuration of filter criteria.
 		<cfset setMailType(getParameter("mailType", "text/html")) />
 		<cfset setUsername(getParameter("username", "")) />
 		<cfset setPassword(getParameter("password", "")) />
+		<cfset setAppendMessageToSubject(getParameter("appendMessageToSubject", false)) />
 
 		<cfif isParameterDefined("charset")
 			AND getAssert().hasLength(getParameter("charset")
@@ -198,6 +200,14 @@ See that file header for configuration of filter criteria.
 				, "This indicates the amount of time to wait while trying to deliver mail.")>
 			<cfset setTimeout(getParameter("timeout")) />
 		</cfif>
+
+		<cftry>
+			<cfset ArrayConcat(ArrayNew(1), ArrayNew(1)) />
+			<cfcatch type="any">
+				<cfset this.arrayConcat = variables.arrayConcat_cfml />
+				<cfset variables.arrayConcat = variables.arrayConcat_cfml />
+			</cfcatch>
+		</cftry>
 	</cffunction>
 
 	<!---
@@ -225,7 +235,7 @@ See that file header for configuration of filter criteria.
 			<!--- Everything needs to be one line or any extra tab / space may be produced on certain CFML engines --->
 			<cfsavecontent variable="body"><cfinclude template="#getEmailTemplateFile()#" /></cfsavecontent>
 
-			<!--- Send the email --->
+			<!--- Send the email. We must use nested cfmail tags because not all target engines support attributeCollection yet? --->
 			<cfif Len(getServers())>
 
 				<cfif hasSpecifiedAuthCredentials()>
@@ -280,9 +290,21 @@ See that file header for configuration of filter criteria.
 		hint="Pre-redirect logic for this logger.">
 		<cfargument name="data" type="struct" required="true"
 			hint="Redirect persist data struct." />
+		<cfargument name="persist" type="boolean" required="false" default="true"
+			hint="Specifies if the redirect is going to persist the data argument." />
+		<cfargument name="appManager" type="any" required="false" />
+		<cfargument name="event" type="any" required="false" />
 
-		<cfif getLogAdapter().getLoggingEnabled() AND getLogAdapter().isLoggingDataDefined()>
-			<cfset arguments.data[getLoggerId()] = getLogAdapter().getLoggingData() />
+		<cfif arguments.persist>
+			<cfif getLogAdapter().getLoggingEnabled() AND getLogAdapter().isLoggingDataDefined()>
+				<cfset arguments.data[getLoggerId()] = getLogAdapter().getLoggingData() />
+			</cfif>
+		<cfelse>
+			<!---
+			If we're not persisting data, then we need to behave as if the request is
+			ending and handle sending an email if needed
+			--->
+			<cfset onRequestEnd(appManager = arguments.appManager, event = arguments.event) />
 		</cfif>
 	</cffunction>
 
@@ -296,11 +318,12 @@ See that file header for configuration of filter criteria.
 		<cfif getLogAdapter().getLoggingEnabled()>
 			<cftry>
 				<cfset loggingData = getLogAdapter().getLoggingData() />
+
 				<!--- OpenBD/Railo has ArrayConcat so we need to use "this" to call the local function --->
 				<cfset loggingData.data = this.arrayConcat(arguments.data[getLoggerId()].data, loggingData.data) />
+
 				<cfcatch type="any">
-					<!--- Do nothing as the configuration may have changed between start of
-					the redirect and now --->
+					<!--- Do nothing as the configuration may have changed between start of the redirect and now --->
 				</cfcatch>
 			</cftry>
 		</cfif>
@@ -378,7 +401,7 @@ See that file header for configuration of filter criteria.
 		<cfreturn Left(arguments.version, Len(arguments.version) - Len(ListLast(arguments.version, ".")) - 1) & " " & release />
 	</cffunction>
 
-	<cffunction name="arrayConcat" access="private" returntype="array" output="false"
+	<cffunction name="arrayConcat_cfml" access="private" returntype="array" output="false"
 		hint="Concats two arrays together.">
 		<cfargument name="array1" type="array" required="true" />
 		<cfargument name="array2" type="array" required="true" />
@@ -404,6 +427,24 @@ See that file header for configuration of filter criteria.
 		<cfloop from="1" to="#ArrayLen(data)#" index="i">
 			<cfif data[i].logLevel GTE triggerLevel>
 				<cfset result = true />
+				<cfbreak />
+			</cfif>
+		</cfloop>
+
+		<cfreturn result />
+	</cffunction>
+
+	<cffunction name="getMessageCausingTrigger" access="private" returntype="struct" output="false"
+		hint="Returns the message that caused the email to be triggered.  Returns empty struct if message is not triggered">
+
+		<cfset var data = getLogAdapter().getLoggingData().data />
+		<cfset var triggerLevel = getLevelEmailTrigger() />
+		<cfset var i = 0 />
+		<cfset var result = StructNew() />
+
+		<cfloop from="1" to="#ArrayLen(data)#" index="i">
+			<cfif data[i].logLevel GTE triggerLevel>
+				<cfset result = data[i] />
 				<cfbreak />
 			</cfif>
 		</cfloop>
@@ -478,7 +519,15 @@ See that file header for configuration of filter criteria.
 		<cfset variables.instance.subject = arguments.subject />
 	</cffunction>
 	<cffunction name="getSubject" access="public" returntype="string" output="false">
-		<cfreturn variables.instance.subject />
+		<cfset var subject = variables.instance.subject />
+		<cfset var triggeredMessage = "" />
+		<cfif getAppendMessageToSubject() >
+			<cfset triggeredMessage = getMessageCausingTrigger() />
+			<cfif NOT StructIsEmpty(triggeredMessage)>
+				<cfset subject = "#subject# : #triggeredMessage.channel# [#triggeredMessage.logLevelName#] : #triggeredMessage.message#" />
+			</cfif>
+		</cfif>
+		<cfreturn Left(subject, 255) />
 	</cffunction>
 
 	<cffunction name="setServers" access="private" returntype="void" output="false">
@@ -535,6 +584,14 @@ See that file header for configuration of filter criteria.
 	</cffunction>
 	<cffunction name="getMailType" access="public" returntype="string" output="false">
 		<cfreturn variables.instance.mailType />
+	</cffunction>
+
+	<cffunction name="setAppendMessageToSubject" access="private" returntype="void" output="false">
+		<cfargument name="appendMessageToSubject" type="boolean" required="true" />
+		<cfset variables.instance.appendMessageToSubject = arguments.appendMessageToSubject />
+	</cffunction>
+	<cffunction name="getAppendMessageToSubject" access="public" returntype="boolean" output="false">
+		<cfreturn variables.instance.appendMessageToSubject />
 	</cffunction>
 
 </cfcomponent>

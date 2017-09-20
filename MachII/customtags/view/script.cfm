@@ -42,15 +42,16 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: script.cfm 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.8.0
-Updated version: 1.8.1
+Updated version: 1.9.0
 
 Notes:
 - OPTIONAL ATTRIBUTES
-	src			= [string|list|array] A single string, comma-delimited list or array of web accessible hrefs to .js files.
-	outputType	= [string] Indicates the output type for the generated HTML code (head, inline).
+	src				= [string|list|array] A single string, comma-delimited list or array of web accessible hrefs to .js files.
+	outputType		= [string] Indicates the output type for the generated HTML code ('head', 'body', 'inline').
+	forIEVersion	= [string] wraps an IE conditional comment around the incoming code
 
 External files are *always* outputted inline first or appended to the head first before
 any inline javascript code.
@@ -78,18 +79,18 @@ any inline javascript code.
 
 	<!--- Ensure attributes if no body content --->
 	<cfif NOT Len(variables.bodyContent)>
-		<cfset ensureOneByNameList("src,event,route") />
+		<cfset ensureOneByNameList("src,event,route,endpoint") />
 	</cfif>
 
 	<!--- If the src is not present, then make an URL using event/module/route --->
 	<cfif NOT StructKeyExists(attributes, "src")
-		AND (StructKeyExists(attributes, "event") OR StructKeyExists(attributes, "route"))>
+		AND (StructKeyExists(attributes, "event") OR StructKeyExists(attributes, "route") OR StructKeyExists(attributes, "endpoint"))>
 		<cfset attributes.src = "external:" & makeUrl() />
 	</cfif>
 
 	<!--- For external files --->
 	<cfif StructKeyExists(attributes, "src")>
-		<cfif attributes.outputType EQ "head">
+		<cfif attributes.outputType NEQ "inline">
 			<cfset locateHtmlHelper().addJavascript(attributes.src, attributes.outputType, attributes.forIEVersion) />
 		<cfelse>
 			<cfset thisTag.GeneratedContent = locateHtmlHelper().addJavascript(attributes.src, attributes.outputType, attributes.forIEVersion) />
@@ -98,20 +99,11 @@ any inline javascript code.
 
 	<!--- For body content --->
 	<cfif Len(variables.bodyContent)>
-		<cfset setContent(Chr(13) & '//<![CDATA[' & Chr(13) & variables.bodyContent & Chr(13) & '//]]>' & Chr(13)) />
-
-		<cfset variables.js = doStartTag() & doEndTag() />
-
-		<!--- Wrap in an IE conditional if defined --->
-		<cfif Len(attributes.forIEVersion)>
-			<cfset variables.js = wrapIEConditionalComment(attributes.forIEVersion, variables.js) />
-		</cfif>
-
-		<cfif attributes.outputType EQ "head">
-			<cfset request.eventContext.addHTMLHeadElement(variables.js) />
-		<cfelse>
-			<cfset thisTag.GeneratedContent = thisTag.GeneratedContent & variables.js />
-		</cfif>
+    <cfif attributes.outputType NEQ "inline">
+      <cfset locateHtmlHelper().addJavascriptBody(variables.bodyContent, attributes.outputType, attributes.forIEVersion) />
+    <cfelse>
+      <cfset thisTag.GeneratedContent = thisTag.GeneratedContent & locateHtmlHelper().addJavascriptBody(variables.bodyContent, attributes.outputType, attributes.forIEVersion) />
+    </cfif>
 	</cfif>
 </cfif>
 </cfsilent><cfsetting enablecfoutputonly="false" />

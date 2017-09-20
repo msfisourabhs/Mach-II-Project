@@ -41,10 +41,10 @@
 	interfaces).
 
 Author: Kurt Wiersma (kurt@mach-ii.com)
-$Id: ExpressionEvaluatorTest.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.6.0
-Updated version: 1.8.0
+Updated version: 1.6.0
 
 Notes:
 --->
@@ -226,11 +226,11 @@ Notes:
 		<cfset result = getExpressionEvaluator().evaluateExpression("this should exist - ${event.temp} - ${properties.temp}", event, propertyManager) />
 		<cfset debug(result) />
 		<cfset assertTrue(result eq "this should exist - ***temp*** - ***temp***", "The expression did not resolve to 'this should exist - ***temp*** - ***temp***'") />
-		
+
 		<cfset result = getExpressionEvaluator().evaluateExpression("some string ${event.temp}", event, propertyManager) />
 		<cfset debug(result) />
 		<cfset assertTrue(result eq "some string ***temp***", "The expression did not resolve to 'some string ***temp***'") />		
-		
+
 		<cfset result = getExpressionEvaluator().evaluateExpression("some string ${event.temp} something", event, propertyManager) />
 		<cfset debug(result) />
 		<cfset assertTrue(result eq "some string ***temp*** something", "The expression did not resolve to 'some string ***temp*** something'") />

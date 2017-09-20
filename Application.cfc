@@ -7,8 +7,15 @@
 	PROPERTIES - APPLICATION SPECIFIC
 	--->
 	<cfset this.name = "artistWeb" />
-	<cfset this.loginStorage = "session" />
-	<cfset this.sessionManagement = true />
+	<!---<cfset this.loginStorage = "session" />
+	--->
+	<cfset THIS.sessionManagement = "yes"/>
+	<cfset THIS.sessioncookie.disableupdate = true>
+	<!---<cfset THIS.setclientcookie = true>
+	---><cfset THIS.sessioncookie.timeout = createTimespan(0,0,10,0)>
+	
+	<!---<cfset this.sessionManagement = true />
+	---><cfset this.clientManagement = true />
 	<cfset this.setClientCookies = true />
 	<cfset this.setDomainCookies = false />
 	<cfset this.sessionTimeOut = CreateTimeSpan(0,1,0,0) />

@@ -41,7 +41,7 @@
 	interfaces).
 
 Author: Kurt Wiersma (kurt@mach-ii.com)
-$Id: TimeSpanCacheTest.cfc 2208 2010-04-28 22:15:46Z peterfarrell $
+$Id$
 
 Created version: 1.6.0
 Updated version: 1.6.0

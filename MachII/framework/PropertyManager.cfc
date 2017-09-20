@@ -41,10 +41,10 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: PropertyManager.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.0.0
-Updated version: 1.8.1
+Updated version: 1.8.0
 
 Notes:
 --->
@@ -54,16 +54,31 @@ Notes:
 	hint="Manages defined properties for the framework.">
 
 	<!---
+	CONSTANTS
+	--->
+	<cfset variables.VERSION_MAJOR = "1.9.0" />
+	<cfset variables.VERSION_MINOR = "@minorVersion@" />
+	<cfset variables.PROPS_NOT_ALLOWED_IN_MODULES = "eventParameter,parameterPrecedence,endpointParameter,maxEvents,redirectPersistParameter,redirectPersistScope,redirectPersistParameterLocation,moduleDelimiter,urlBase,urlSecureBase,urlSecureEnabled,urlDelimiters,urlParseSES,urlExcludeEventParameter,urlZeroLengthStringRepresentation,defaultModule" />
+	<cfset variables.PROPERTY_SHORTCUTS = StructNew() />
+	<cfset variables.PROPERTY_SHORTCUTS["ColdspringProperty"] = "MachII.properties.ColdspringProperty" />
+	<cfset variables.PROPERTY_SHORTCUTS["EnvironmentProperty"] = "MachII.properties.EnvironmentProperty" />
+	<cfset variables.PROPERTY_SHORTCUTS["HtmlHelperLoaderProperty"] = "MachII.properties.HtmlHelperLoaderProperty" />
+	<cfset variables.PROPERTY_SHORTCUTS["HtmlHelperProperty"] = "MachII.properties.HtmlHelperProperty" />
+	<cfset variables.PROPERTY_SHORTCUTS["UrlRoutesProperty"] = "MachII.properties.UrlRoutesProperty" />
+	<cfset variables.PROPERTY_SHORTCUTS["CachingProperty"] = "MachII.caching.CachingProperty" />
+	<cfset variables.PROPERTY_SHORTCUTS["LoggingProperty"] = "MachII.logging.LoggingProperty" />
+	<cfset variables.PROPERTY_SHORTCUTS["GlobalizationLoaderProperty"] = "MachII.globalization.GlobalizationLoaderProperty" />
+	<cfset variables.PROPERTY_LOAD_ORDER = "MachII.properties.EnvironmentProperty,MachII.properties.ColdspringProperty" />
+
+	<!---
 	PROPERTIES
 	--->
 	<cfset variables.appManager = "" />
 	<cfset variables.properties = StructNew() />
 	<cfset variables.configurablePropertyNames = ArrayNew(1) />
-	<cfset variables.parentPropertyManager = "">
-	<cfset variables.majorVersion = "1.8.1" />
-	<cfset variables.minorVersion = "8" />
-	<cfset variables.propsNotAllowInModule =
-		 "eventParameter,parameterPrecedence,maxEvents,redirectPersistParameter,redirectPersistScope,redirectPersistParameterLocation,moduleDelimiter,urlBase,urlDelimiters,urlParseSES,urlExcludeEventParameter" />
+	<cfset variables.anonymousPropertyNames = StructNew() />
+	<cfset variables.parentPropertyManager = "" />
+	<cfset variables.baseProxyTarget = "" />
 
 	<!---
 	INITIALIZATION / CONFIGURATION
@@ -81,6 +96,9 @@ Notes:
 		<!--- Setup the log --->
 		<cfset setLog(getAppManager().getLogFactory()) />
 
+		<!--- Setup for duplicate for performance --->
+		<cfset variables.baseProxyTarget = CreateObject("component",  "MachII.framework.BaseProxy") />
+
 		<cfreturn this />
 	</cffunction>
 
@@ -94,6 +112,7 @@ Notes:
 		<cfset var propertyValue = "" />
 		<cfset var propertyType = "" />
 		<cfset var propertyParams = "" />
+		<cfset var propertyLoadOrder = ArrayNew(1) />
 
 		<cfset var paramsNodes = ArrayNew(1) />
 		<cfset var paramName = "" />
@@ -109,16 +128,23 @@ Notes:
 		<!--- Search for properties --->
 		<cfif NOT arguments.override>
 			<cfset propertyNodes = XMLSearch(arguments.configXML, "mach-ii/properties/property") />
+			<cfset propertyLoadOrder = XMLSearch(arguments.configXML, "mach-ii/properties/@loadPriority") />
 		<cfelse>
 			<cfset propertyNodes = XMLSearch(arguments.configXML, ".//properties/property") />
+			<cfset propertyLoadOrder = XMLSearch(arguments.configXML, ".//properties/@loadPriority") />
+		</cfif>
+
+		<cfif arrayLen(propertyLoadOrder)>
+			<cfset variables.PROPERTY_LOAD_ORDER = propertyLoadOrder[1].XmlValue />
 		</cfif>
 
 		<!--- Set the properties from the XML file. --->
 		<cfloop from="1" to="#ArrayLen(PropertyNodes)#" index="i">
-			<cfset propertyName = propertyNodes[i].xmlAttributes["name"] />
 
 			<!--- Override XML for Modules --->
 			<cfif hasParent AND arguments.override AND StructKeyExists(propertyNodes[i].xmlAttributes, "overrideAction")>
+				<cfset propertyName = propertyNodes[i].xmlAttributes["name"] />
+
 				<cfif propertyNodes[i].xmlAttributes["overrideAction"] EQ "useParent">
 					<cfset removeProperty(propertyName) />
 				<cfelseif propertyNodes[i].xmlAttributes["overrideAction"] EQ "addFromParent">
@@ -141,7 +167,24 @@ Notes:
 			<cfelse>
 				<!--- Setup if configurable property --->
 				<cfif StructKeyExists(propertyNodes[i].xmlAttributes, "type")>
-					<cfset propertyType = propertyNodes[i].xmlAttributes["type"] />
+
+					<cfset propertyType = resolvePropertyTypeShortcut(propertyNodes[i].xmlAttributes["type"]) />
+
+					<cfif StructKeyExists(propertyNodes[i].xmlAttributes, "name")>
+						<cfset propertyName = propertyNodes[i].xmlAttributes["name"] />
+					<cfelse>
+						<cfset propertyName = resolveAnonymousPropertyName(propertyType) />
+					</cfif>
+
+					<!---
+						Ensure the configurable property CFC is not already defined if override is not allowed.
+						isPropertyDefined does not check the parent (which is exactly what we want to do)
+					--->
+					<cfif NOT arguments.override AND isPropertyDefined(propertyName)>
+						<cfthrow type="MachII.framework.PropertyNameConflict"
+							message="A configurable property CFC already exists in a property named '#propertyName#' in module named '#getAppManager().getModuleName()#'."
+							detail="Please check your base config file and any include files in the named module for duplicate property names. Overrided property CFCs can cause unintended side-effects." />
+					</cfif>
 
 					<!--- Set the Property's parameters. --->
 					<cfset propertyParams = StructNew() />
@@ -185,13 +228,21 @@ Notes:
 					</cftry>
 
 					<!--- Continue setup on the property --->
-					<cfset baseProxy = CreateObject("component",  "MachII.framework.BaseProxy").init(propertyValue, propertyType, propertyParams) />
+					<cfset baseProxy = Duplicate(variables.baseProxyTarget).init(propertyValue, propertyType, propertyParams) />
 					<cfset propertyValue.setProxy(baseProxy) />
 
-					<!--- Add the property to the array of configurable properties so they can be configured --->
-					<cfset ArrayAppend(variables.configurablePropertyNames, propertyName) />
+					<!---
+						Add the property to the array of configurable properties so they can be configured. If the property already
+						exists, then we should not add it to the array of configurable property names as it causes the configure()
+						method to be called twice.
+					--->
+					<cfif NOT isPropertyDefined(propertyName)>
+						<cfset arrayAppend(variables.configurablePropertyNames, propertyName)>
+					</cfif>
 				<!--- Setup if name/value pair, struct or array --->
 				<cfelse>
+					<cfset propertyName = propertyNodes[i].xmlAttributes["name"] />
+
 					<cftry>
 						<cfset propertyValue = utils.recurseComplexValues(propertyNodes[i]) />
 						<cfcatch type="any">
@@ -201,85 +252,13 @@ Notes:
 					</cftry>
 				</cfif>
 
-				<!--- Set the property --->
-				<cfif (hasParent AND NOT listFindNoCase(propsNotAllowInModule, propertyName))
-						OR NOT hasParent>
-					<cfset setProperty(propertyName, propertyValue) />
-				</cfif>
+				<!--- Set the property (allowable property names ared checked by setProperty() method so no check needed here)--->
+				<cfset setProperty(propertyName, propertyValue) />
 			</cfif>
 		</cfloop>
-
-		<!--- Make sure required properties are set if this is the base application:
-			defaultEvent, exceptionEvent, applicationRoot, eventParameter, parameterPrecedence, maxEvents and redirectPersistParameter. --->
-		<cfif NOT hasParent>
-			<cfif NOT isPropertyDefined("defaultEvent")>
-				<cfset setProperty("defaultEvent", "defaultEvent") />
-			</cfif>
-			<cfif NOT isPropertyDefined("exceptionEvent")>
-				<cfset setProperty("exceptionEvent", "exceptionEvent") />
-			</cfif>
-			<cfif NOT isPropertyDefined("applicationRoot")>
-				<cfset setProperty("applicationRoot", "") />
-			</cfif>
-			<cfif NOT isPropertyDefined("eventParameter")>
-				<cfset setProperty("eventParameter", "event") />
-			</cfif>
-			<cfif NOT isPropertyDefined("parameterPrecedence")>
-				<cfset setProperty("parameterPrecedence", "form") />
-			<cfelseif NOT ListFindNoCase("form|url", getProperty("parameterPrecedence"), "|")>
-				<cfthrow type="MachII.framework.invalidPropertyValue"
-					message="The 'parameterPrecedence' property must have a the value of 'form' or 'url'." />
-			</cfif>
-			<cfif NOT isPropertyDefined("maxEvents")>
-				<cfset setProperty("maxEvents", 10) />
-			<cfelseif NOT IsNumeric(getProperty("maxEvents"))>
-				<cfthrow type="MachII.framework.invalidPropertyValue"
-					message="The 'maxEvents' property must be an integer." />
-			</cfif>
-			<cfif NOT isPropertyDefined("redirectPersistParameter")>
-				<cfset setProperty("redirectPersistParameter", "persistId") />
-			</cfif>
-			<cfif NOT isPropertyDefined("redirectPersistScope")>
-				<cfset setProperty("redirectPersistScope", "session") />
-			</cfif>
-			<cfif NOT isPropertyDefined("redirectPersistParameterLocation")>
-				<cfset setProperty("redirectPersistParameterLocation", "url") />
-			<cfelseif NOT ListFindNoCase("cookie,url", getProperty("redirectPersistParameterLocation"))>
-				<cfthrow type="MachII.framework.invalidPropertyValue"
-					message="The 'redirectPersistParameterLocation' property must be an 'url' or 'cookie'." />
-			</cfif>
-			<cfif NOT isPropertyDefined("urlBase")>
-				<cfset setProperty("urlBase", "index.cfm") />
-			</cfif>
-			<cfif NOT isPropertyDefined("urlDelimiters")>
-				<cfset setProperty("urlDelimiters", "?|&|=") />
-			<cfelseif ListLen(getProperty("urlDelimiters"), "|") NEQ 3>
-				<cfthrow type="MachII.framework.invalidPropertyValue"
-					message="The 'urlDelimiters' property must have a list length of 3 with a delimiter of a '|'." />
-			</cfif>
-			<cfif NOT isPropertyDefined("urlParseSES")>
-				<!---
-					Automatically parse for SES urls if the delimiters are not set to query
-					string and no urlParseSES is defined
-				--->
-				<cfif getProperty("urlDelimiters") NEQ "?|&|=">
-					<cfset setProperty("urlParseSES", true) />
-				<cfelse>
-					<cfset setProperty("urlParseSES", false) />
-				</cfif>
-			<cfelseif NOT IsBoolean(getProperty("urlParseSES"))>
-				<cfthrow type="MachII.framework.invalidPropertyValue"
-					message="The 'urlParseSES' property must be a boolean." />
-			</cfif>
-			<cfif NOT isPropertyDefined("moduleDelimiter")>
-				<cfset setProperty("moduleDelimiter", ":") />
-			</cfif>
-			<cfif NOT isPropertyDefined("urlExcludeEventParameter")>
-				<cfset setProperty("urlExcludeEventParameter", false) />
-			<cfelseif NOT IsBoolean(getProperty("urlExcludeEventParameter"))>
-				<cfthrow type="MachII.framework.invalidPropertyValue"
-					message="The 'urlExcludeEventParameter' property must be a boolean." />
-			</cfif>
+		
+		<cfif listLen(variables.PROPERTY_LOAD_ORDER)>
+			<cfset sortConfigurableProperties() />
 		</cfif>
 	</cffunction>
 
@@ -291,9 +270,12 @@ Notes:
 		<cfset var aConfigurableProperty = "" />
 		<cfset var i = 0 />
 
+		<!--- Ensure base application properties defaults --->
+		<cfset ensureBasePropertyDefaults() />
+
 		<!--- Run configure on all configurable properties --->
-		<cfloop from="1" to="#ArrayLen(variables.configurablePropertyNames)#" index="i">
-			<cfset aConfigurableProperty = getProperty(variables.configurablePropertyNames[i]) />
+		<cfloop from="1" to="#ArrayLen(configurablePropertyNames)#" index="i">
+			<cfset aConfigurableProperty = getProperty(configurablePropertyNames[i]) />
 			<cfset appManager.onObjectReload(aConfigurableProperty) />
 			<cfset aConfigurableProperty.configure() />
 		</cfloop>
@@ -306,10 +288,27 @@ Notes:
 		<cfset var aConfigurableProperty = "" />
 		<cfset var i = 0 />
 
-		<!--- Run configure on all configurable properties --->
-		<cfloop from="1" to="#ArrayLen(variables.configurablePropertyNames)#" index="i">
-			<cfset aConfigurableProperty = getProperty(variables.configurablePropertyNames[i]) />
-			<cfset aConfigurableProperty.deconfigure() />
+		<!---
+			Run deconfigure on all configurable properties. This should be done in reverse order
+			of the way things were configured since configurable properties are loaded in the order
+			they are defined in the XML.
+		--->
+		<cfloop from="#ArrayLen(configurablePropertyNames)#" to="1" step="-1" index="i">
+			<cfset aConfigurableProperty = getProperty(configurablePropertyNames[i]) />
+			<cftry>
+				<cfset aConfigurableProperty.deconfigure() />
+				<cfcatch type="any">
+					<!---
+						If the property is an object, then is a real exception. Otherwise,
+						somebody replaced a configurable property with another datatype during
+						the lifetime of the application which we cannot deconfigure and therefore
+						ignore the exception. See ticket 720.
+					--->
+					<cfif IsObject(aConfigurableProperty)>
+						<cfrethrow />
+					</cfif>
+				</cfcatch>
+			</cftry>
 		</cfloop>
 	</cffunction>
 
@@ -359,9 +358,11 @@ Notes:
 			applicationRoot, eventParameter, parameterPredence, maxEvents, redirectPreists, redirectPeristscope,
 			moduleDelimiter, all url stuff. Can be overriden: defaultEvent, exceptionEvent
 		--->
-		<cfif IsObject(getParent()) AND listFindNoCase(propsNotAllowInModule, propertyName)>
-			<cfthrow type="MachII.framework.propertyNotAllowed"
-				message="The '#arguments.propertyName#' property cannot be set inside of a module." />
+		<cfif IsObject(getParent()) AND listFindNoCase(variables.PROPS_NOT_ALLOWED_IN_MODULES, propertyName)>
+			<cfif NOT getAppManager().isLoading()>
+				<cfthrow type="MachII.framework.propertyNotAllowed"
+					message="The '#arguments.propertyName#' property cannot be set inside of a module." />
+			</cfif>
 		<cfelse>
 			<!--- Save the proxy if this is a configurable property --->
 			<cfif IsObject(arguments.propertyValue) AND StructKeyExists(arguments.propertyValue, "getProxy")>
@@ -411,11 +412,31 @@ Notes:
 		<cfset var minorVersion = 0 />
 
 		<!--- Leave the string as-is or the build will fail --->
-		<cfif NOT variables.minorVersion IS "@" & "minorVersion" & "@">
-			<cfset minorVersion = variables.minorVersion />
+		<cfif NOT variables.VERSION_MINOR IS "@" & "minorVersion" & "@">
+			<cfset minorVersion = variables.VERSION_MINOR />
 		</cfif>
 
-		<cfreturn variables.majorVersion &  "." & minorVersion />
+		<cfreturn variables.VERSION_MAJOR &  "." & minorVersion />
+	</cffunction>
+
+	<cffunction name="sortConfigurableProperties" access="private" returntype="void" output="false"
+		hint="Sorts Configurable Properties By Load Priority.">
+
+		<cfset var i = 0 />
+		<cfset var pos = 1 />
+		<cfset var sortTable = structNew() />
+
+		<cfloop from="1" to="#ArrayLen(variables.configurablePropertyNames)#" index="i">
+			<cfset pos = ListContainsNoCase(variables.PROPERTY_LOAD_ORDER, variables.configurablePropertyNames[i])>
+
+			<cfif pos EQ 0>
+				<cfset pos = listLen(variables.PROPERTY_LOAD_ORDER) + i />
+			</cfif>
+
+			<cfset sortTable[variables.configurablePropertyNames[i]] = pos />
+		</cfloop>
+
+		<cfset variables.configurablePropertyNames = structSort(sortTable, "numeric") />
 	</cffunction>
 
 	<cffunction name="getConfigurablePropertyNames" access="public" returntype="array" output="false"
@@ -480,6 +501,99 @@ Notes:
 		<cfset setProperty(arguments.propertyName, newProperty) />
 	</cffunction>
 
+	<cffunction name="ensureBasePropertyDefaults" access="public" returntype="void" output="false"
+		hint="Ensures that base property defaults have been set.">
+
+		<cfset var temp = "" />
+
+		<!--- Make sure required properties are set if this the base application --->
+		<cfif NOT IsObject(getParent())>
+			<cfif NOT isPropertyDefined("defaultEvent")>
+				<cfset setProperty("defaultEvent", "defaultEvent") />
+			</cfif>
+			<cfif NOT isPropertyDefined("defaultModule")>
+				<cfset setProperty("defaultModule", "") />
+			</cfif>
+			<cfif NOT isPropertyDefined("exceptionEvent")>
+				<cfset setProperty("exceptionEvent", "exceptionEvent") />
+			</cfif>
+			<cfif NOT isPropertyDefined("exceptionModule")>
+				<cfset setProperty("exceptionModule", "") />
+			</cfif>
+			<cfif NOT isPropertyDefined("applicationRoot")>
+				<cfset setProperty("applicationRoot", "") />
+			</cfif>
+			<cfif NOT isPropertyDefined("eventParameter")>
+				<cfset setProperty("eventParameter", "event") />
+			</cfif>
+			<cfif NOT isPropertyDefined("parameterPrecedence")>
+				<cfset setProperty("parameterPrecedence", "form") />
+			<cfelseif NOT ListFindNoCase("form|url", getProperty("parameterPrecedence"), "|")>
+				<cfthrow type="MachII.framework.invalidPropertyValue"
+					message="The 'parameterPrecedence' property must have a the value of 'form' or 'url'." />
+			</cfif>
+			<cfif NOT isPropertyDefined("maxEvents")>
+				<cfset setProperty("maxEvents", 10) />
+			<cfelseif NOT IsNumeric(getProperty("maxEvents"))>
+				<cfthrow type="MachII.framework.invalidPropertyValue"
+					message="The 'maxEvents' property must be an integer." />
+			</cfif>
+			<cfif NOT isPropertyDefined("endpointParameter")>
+				<cfset setProperty("endpointParameter", "endpoint") />
+			</cfif>
+			<cfif NOT isPropertyDefined("redirectPersistParameter")>
+				<cfset setProperty("redirectPersistParameter", "persistId") />
+			</cfif>
+			<cfif NOT isPropertyDefined("redirectPersistScope")>
+				<cfset setProperty("redirectPersistScope", "session") />
+			</cfif>
+			<cfif NOT isPropertyDefined("redirectPersistParameterLocation")>
+				<cfset setProperty("redirectPersistParameterLocation", "url") />
+			<cfelseif NOT ListFindNoCase("cookie,url", getProperty("redirectPersistParameterLocation"))>
+				<cfthrow type="MachII.framework.invalidPropertyValue"
+					message="The 'redirectPersistParameterLocation' property must be an 'url' or 'cookie'." />
+			</cfif>
+			<cfif NOT isPropertyDefined("urlSecureEnabled")>
+				<cfset setProperty("urlSecureEnabled", true) />
+			</cfif>
+			<cfif NOT isPropertyDefined("urlBase")>
+				<cfset setProperty("urlBase", "index.cfm") />
+			</cfif>
+			<cfif NOT isPropertyDefined("urlDelimiters")>
+				<cfset setProperty("urlDelimiters", "?|&|=") />
+			<cfelseif ListLen(getProperty("urlDelimiters"), "|") NEQ 3>
+				<cfthrow type="MachII.framework.invalidPropertyValue"
+					message="The 'urlDelimiters' property must have a list length of 3 with a delimiter of a '|'." />
+			</cfif>
+			<cfif NOT isPropertyDefined("urlParseSES")>
+				<!---
+					Automatically parse for SES urls if the delimiters are not set to query
+					string and no urlParseSES is defined
+				--->
+				<cfif getProperty("urlDelimiters") NEQ "?|&|=">
+					<cfset setProperty("urlParseSES", true) />
+				<cfelse>
+					<cfset setProperty("urlParseSES", false) />
+				</cfif>
+			<cfelseif NOT IsBoolean(getProperty("urlParseSES"))>
+				<cfthrow type="MachII.framework.invalidPropertyValue"
+					message="The 'urlParseSES' property must be a boolean." />
+			</cfif>
+			<cfif NOT isPropertyDefined("urlZeroLengthStringRepresentation")>
+				<cfset setProperty("urlZeroLengthStringRepresentation", "_-_NULL_-_") />
+			</cfif>
+			<cfif NOT isPropertyDefined("moduleDelimiter")>
+				<cfset setProperty("moduleDelimiter", ":") />
+			</cfif>
+			<cfif NOT isPropertyDefined("urlExcludeEventParameter")>
+				<cfset setProperty("urlExcludeEventParameter", false) />
+			<cfelseif NOT IsBoolean(getProperty("urlExcludeEventParameter"))>
+				<cfthrow type="MachII.framework.invalidPropertyValue"
+					message="The 'urlExcludeEventParameter' property must be a boolean." />
+			</cfif>
+		</cfif>
+	</cffunction>
+
 	<!---
 	PROTECTED FUNCTIONS - UTILS
 	--->
@@ -500,6 +614,34 @@ Notes:
 		</cfloop>
 
 		<cfreturn configurable />
+	</cffunction>
+
+	<cffunction name="resolvePropertyTypeShortcut" access="private" returntype="string" output="false"
+		hint="Resolves a property type shorcut and returns the passed value if no match is found.">
+		<cfargument name="propertyType" type="string" required="true"
+			hint="Dot path to the property." />
+
+		<cfif StructKeyExists(variables.PROPERTY_SHORTCUTS, arguments.propertyType)>
+			<cfreturn variables.PROPERTY_SHORTCUTS[arguments.propertyType] />
+		<cfelse>
+			<cfreturn arguments.propertyType />
+		</cfif>
+	</cffunction>
+
+	<cffunction name="resolveAnonymousPropertyName" access="private" returntype="string" output="false"
+		hint="Resolves an anonymous property name.">
+		<cfargument name="propertyType" type="string" required="true"
+			hint="Dot path to the property." />
+
+		<cfset var shortPropertyType = ListLast(arguments.propertyType, ".") />
+
+		<cfif StructKeyExists(variables.anonymousPropertyNames, shortPropertyType)>
+			<cfset variables.anonymousPropertyNames["shortPropertyType"] = variables.anonymousPropertyNames["shortPropertyType"] + 1 />
+		<cfelse>
+			<cfset variables.anonymousPropertyNames["shortPropertyType"] = 1 />
+		</cfif>
+
+		<cfreturn shortPropertyType & "_" & variables.anonymousPropertyNames["shortPropertyType"] />
 	</cffunction>
 
 	<!---
@@ -526,7 +668,7 @@ Notes:
 	<cffunction name="setLog" access="private" returntype="void" output="false"
 		hint="Uses the log factory to create a log.">
 		<cfargument name="logFactory" type="MachII.logging.LogFactory" required="true" />
-		<cfset variables.log = arguments.logFactory.getLog(getMetadata(this).name) />
+		<cfset variables.log = arguments.logFactory.getLog("MachII.framework.PropertyManager") />
 	</cffunction>
 	<cffunction name="getLog" access="private" returntype="MachII.logging.Log" output="false"
 		hint="Gets the log.">

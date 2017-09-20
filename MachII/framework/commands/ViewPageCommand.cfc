@@ -41,10 +41,10 @@
 	interfaces).
 
 Author: Ben Edwards (ben@ben-edwards.com)
-$Id: ViewPageCommand.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.0.0
-Updated version: 1.8.0
+Updated version: 1.9.0
 
 Notes:
 --->
@@ -62,6 +62,7 @@ Notes:
 	<cfset variables.contentKey = "" />
 	<cfset variables.contentArg = "" />
 	<cfset variables.append = false />
+	<cfset variables.prepend = false />
 
 	<!---
 	INITIALIZATION / CONFIGURATION
@@ -72,11 +73,13 @@ Notes:
 		<cfargument name="contentKey" type="string" required="false" default="" />
 		<cfargument name="contentArg" type="string" required="false" default="" />
 		<cfargument name="append" type="string" required="false" default="false" />
+		<cfargument name="prepend" type="string" required="false" default="false" />
 
 		<cfset setViewName(arguments.viewName) />
 		<cfset setContentKey(arguments.contentKey) />
 		<cfset setContentArg(arguments.contentArg) />
 		<cfset setAppend(arguments.append) />
+		<cfset setPrepend(arguments.prepend) />
 
 		<cfreturn this />
 	</cffunction>
@@ -89,7 +92,7 @@ Notes:
 		<cfargument name="event" type="MachII.framework.Event" required="true" />
 		<cfargument name="eventContext" type="MachII.framework.EventContext" required="true" />
 
-		<cfset arguments.eventContext.displayView(arguments.event, getViewName(), getContentKey(), getContentArg(), getAppend()) />
+		<cfset arguments.eventContext.displayView(arguments.event, getViewName(), getContentKey(), getContentArg(), getAppend(), getPrepend()) />
 
 		<cfreturn true />
 	</cffunction>
@@ -133,6 +136,14 @@ Notes:
 	</cffunction>
 	<cffunction name="getAppend" access="private" returntype="boolean" output="false">
 		<cfreturn variables.append />
+	</cffunction>
+
+	<cffunction name="setPrepend" access="private" returntype="void" output="false">
+		<cfargument name="prepend" type="string" required="true" />
+		<cfset variables.prepend = (arguments.prepend IS "true") />
+	</cffunction>
+	<cffunction name="getPrepend" access="private" returntype="boolean" output="false">
+		<cfreturn variables.prepend />
 	</cffunction>
 
 </cfcomponent>

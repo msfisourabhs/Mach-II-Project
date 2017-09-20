@@ -41,7 +41,7 @@
 	interfaces).
 
 Author: Kurt Wiersma (kurt@mach-ii.com)
-$Id: Address.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.8.0
 Updated version: 1.8.0

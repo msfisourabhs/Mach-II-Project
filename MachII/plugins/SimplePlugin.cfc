@@ -40,7 +40,7 @@
 	extend certain Mach-II public interfaces (see README for list of public
 	interfaces).
 
-$Id: SimplePlugin.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.0.0
 Updated version: 1.6.0

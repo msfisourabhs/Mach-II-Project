@@ -41,10 +41,10 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: BaseComponent.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.0.10
-Updated version: 1.8.0
+Updated version: 1.9.0
 
 Notes:
 The BaseComponent extended by Listener, EventFilter, Plugin and Property components and gives
@@ -62,6 +62,7 @@ quick access to things such as announcing a new event or getting/setting propert
 	<cfset variables.parameters = StructNew() />
 	<cfset variables.log = "" />
 	<cfset variables.baseProxy = "" />
+	<cfset variables.componentNameFull = "" />
 	<cfset variables.componentNameForLogging = "" />
 
 	<!---
@@ -78,8 +79,10 @@ quick access to things such as announcing a new event or getting/setting propert
 		<cfset setAppManager(arguments.appManager) />
 		<cfset setParameters(arguments.parameters) />
 
-		<!--- Compute the compoent name that will be used for logging --->
-		<cfset variables.componentNameForLogging = ListLast(getMetaData(this).name, ".") />
+		<!--- Compute the full and short component name that will be used for logging --->
+
+		<cfset variables.componentNameFull = getMetaData(this).name />
+		<cfset variables.componentNameForLogging = ListLast(variables.componentNameFull, ".") />
 
 		<cfset setLog(getAppManager().getLogFactory()) />
 	</cffunction>
@@ -87,7 +90,7 @@ quick access to things such as announcing a new event or getting/setting propert
 	<cffunction name="setLog" access="public" returntype="void" output="false"
 		hint="Uses the log factory to create a log.">
 		<cfargument name="logFactory" type="MachII.logging.LogFactory" required="true" />
-		<cfset variables.log = arguments.logFactory.getLog(getMetadata(this).name) />
+		<cfset variables.log = arguments.logFactory.getLog(variables.componentNameFull) />
 	</cffunction>
 	<cffunction name="getLog" access="public" returntype="MachII.logging.Log" output="false"
 		hint="Gets the log.">
@@ -113,6 +116,15 @@ quick access to things such as announcing a new event or getting/setting propert
 		hint="Override to provide custom deconfiguration logic. Also called when target object is reloaded.">
 		<!--- Does nothing --->
 	</cffunction>
+	
+	<!---
+	DOCUMENTATION
+	
+	If you update or add methods to this component, please update the corresponding CFEclipse
+	context help file at:
+	
+	/tooling/cfeclipse/baseComponentDictionary.xml
+	--->
 
 	<!---
 	PUBLIC FUNCTIONS
@@ -148,7 +160,7 @@ quick access to things such as announcing a new event or getting/setting propert
 		<cfargument name="persistArgs" type="any" required="false" default=""
 			hint="You can pass in either an Event object, a struct of items or a list of event args to persist." />
 		<cfargument name="statusType" type="string" required="false" default=""
-			hint="String that represent which http status type to use in the redirect.">
+			hint="The HTTP status type to use for the redirect (temporary, permanent or PRG).">
 		<cfset getAppManager().getRequestManager().getRequestHandler().getEventContext().redirectEvent(
 				arguments.eventName, arguments.args,
 				getAppManager().getRequestManager().getRequestHandler().getEventContext().getAppManager().getModuleName(),
@@ -168,7 +180,7 @@ quick access to things such as announcing a new event or getting/setting propert
 		<cfargument name="persistArgs" type="any" required="false" default=""
 			hint="You can pass in either a struct of items or a list of event args to persist." />
 		<cfargument name="statusType" type="string" required="false" default=""
-			hint="String that represent which http status type to use in the redirect.">
+			hint="The HTTP status type to use for the redirect (temporary, permanent or PRG).">
 		<cfset getAppManager().getRequestManager().getRequestHandler().getEventContext().redirectEvent(
 			arguments.eventName, arguments.args, arguments.moduleName, arguments.persist, arguments.persistArgs, arguments.statusType) />
 	</cffunction>
@@ -184,7 +196,7 @@ quick access to things such as announcing a new event or getting/setting propert
 		<cfargument name="persistArgs" type="any" required="false" default=""
 			hint="You can pass in either an Event object, a struct of items or a list of event args to persist." />
 		<cfargument name="statusType" type="string" required="false" default=""
-			hint="String that represent which http status type to use in the redirect.">
+			hint="The HTTP status type to use for the redirect (temporary, permanent or PRG).">
 		<cfset getAppManager().getRequestManager().getRequestHandler().getEventContext().redirectRoute(
 			arguments.routeName, arguments.routeArgs, arguments.persist, arguments.persistArgs, arguments.statusType) />
 	</cffunction>
@@ -194,7 +206,7 @@ quick access to things such as announcing a new event or getting/setting propert
 		<cfargument name="redirectUrl" type="string" required="true"
 			hint="The full url to redirect to. Should be in the form of 'http://www.mach-ii.com'." />
 		<cfargument name="statusType" type="string" required="false" default=""
-			hint="String that represent which http status type to use in the redirect.">
+			hint="The HTTP status type to use for the redirect (temporary, permanent or PRG).">
 		<cfset getAppManager().getRequestManager().getRequestHandler().getEventContext().redirectUrl(
 			arguments.redirectUrl, arguments.statusType) />
 	</cffunction>
@@ -221,7 +233,7 @@ quick access to things such as announcing a new event or getting/setting propert
 	</cffunction>
 
 	<cffunction name="buildUrlToModule" access="public" returntype="string" output="false"
-		hint="Builds a framework specific url. Does not escape entities.">
+		hint="Builds a framework specific url using a module. Does not escape entities.">
 		<cfargument name="moduleName" type="string" required="true"
 			hint="Name of the module to build the url with. Defaults to base module if empty string." />
 		<cfargument name="eventName" type="string" required="true"
@@ -247,16 +259,25 @@ quick access to things such as announcing a new event or getting/setting propert
 	</cffunction>
 
 	<cffunction name="buildCurrentUrl" access="public" returntype="string" output="false"
-		hint="Builds a framework specific url and automatically escapes entities for html display.">
+		hint="Builds a framework specific url based off the current URL and automatically escapes entities for html display.">
 		<cfargument name="urlParameters" type="any" required="false" default=""
 			hint="Name/value pairs (urlArg1=value1|urlArg2=value2) to replace or add into the current url with or a struct of data." />
 		<cfargument name="urlParametersToRemove" type="string" required="false" default=""
-			hint="Comma delimited list of url parameter names of items to remove from the current url" />
+			hint="Comma delimited list of url parameter names of items to remove from the current url." />
 
 		<!--- Grab the module name from the context of the currently executing request--->
 		<cfset arguments.moduleName = getAppManager().getModuleName() />
 
 		<cfreturn getAppManager().getRequestManager().buildCurrentUrl(argumentcollection=arguments) />
+	</cffunction>
+
+	<cffunction name="buildEndpointUrl" access="public" returntype="string" output="false"
+		hint="Builds an endpoint specific url.">
+		<cfargument name="endpointName" type="string" required="true"
+			hint="Name of the target endpoint." />
+		<cfargument name="urlParameters" type="any" required="false" default=""
+			hint="Name/value pairs (urlArg1=value1|urlArg2=value2) to build the url with or a struct of data." />		
+		<cfreturn getAppManager().getEndpointManager().buildEndpointUrl(argumentcollection=arguments) />
 	</cffunction>
 
 	<cffunction name="addHTMLHeadElement" access="public" returntype="boolean" output="false"
@@ -267,34 +288,53 @@ quick access to things such as announcing a new event or getting/setting propert
 			hint="Checks for *exact* duplicates using the text if true. Does not check if false (default behavior)." />
 		<cfargument name="blockDuplicateCheckString" type="string" required="false"
 			hint="The check string to use if blocking duplicates is selected. Default to 'arguments.text' if not defined" />
-
 		<cfreturn getAppManager().getRequestManager().getRequestHandler().getEventContext().addHTMLHeadElement(argumentcollection=arguments) />
+	</cffunction>
+
+	<cffunction name="addHTMLBodyElement" access="public" returntype="boolean" output="false"
+		hint="Adds a HTML body element. Returns a boolean if the element was appened to body (always returns true unless you allow duplicates).">
+		<cfargument name="text" type="string" required="true"
+			hint="Text to add to the HTML body section." />
+		<cfargument name="blockDuplicate" type="boolean" required="false"
+			hint="Checks for *exact* duplicates using the text if true. Does not check if false (default behavior)." />
+		<cfargument name="blockDuplicateCheckString" type="string" required="false"
+			hint="The check string to use if blocking duplicates is selected. Defaults to 'arguments.text' if not defined." />
+		<cfreturn getAppManager().getRequestManager().getRequestHandler().getEventContext().addHTMLBodyElement(argumentcollection=arguments) />
 	</cffunction>
 
 	<cffunction name="addHTTPHeaderByName" access="public" returntype="void" output="false"
 		hint="Adds a HTTP header by name/value.">
-		<cfargument name="name" type="string" required="true" />
-		<cfargument name="value" type="string" required="true" />
+		<cfargument name="name" type="string" required="true"
+			hint="The name of the header." />
+		<cfargument name="value" type="string" required="true"
+			hint="The value of the header." />
 		<cfargument name="charset" type="string" required="false" />
 		<cfset getAppManager().getRequestManager().getRequestHandler().getEventContext().addHTTPHeader(argumentcollection=arguments) />
 	</cffunction>
 
 	<cffunction name="addHTTPHeaderByStatus" access="public" returntype="void" output="false"
 		hint="Adds a HTTP header by statusCode/statusText.">
-		<cfargument name="statuscode" type="string" required="true" />
-		<cfargument name="statustext" type="string" required="false" />
+		<cfargument name="statuscode" type="string" required="true"
+			hint="The numeric statuscode to send as a header. Standard status codes do not need text as the framework will look them up." />
+		<cfargument name="statustext" type="string" required="false"
+			hint="The text for this statuscode." />
 		<cfset getAppManager().getRequestManager().getRequestHandler().getEventContext().addHTTPHeader(argumentcollection=arguments) />
 	</cffunction>
 
 	<cffunction name="uploadFile" access="public" returntype="struct" output="false"
-		hint="Wrapper for CFFILE action=upload to better integrate uploading files">
-		<cfargument name="fileField" type="string" required="true" />
-		<cfargument name="destination" type="string" required="true" />
-		<cfargument name="nameConflict" type="string" required="false" default="error" />
-		<cfargument name="accept" type="string" required="false" default="*" />
-		<cfargument name="mode" type="string" required="false" />
-		<cfargument name="fileAttributes" type="string" required="false" />
-
+		hint="Wrapper for CFFILE action=upload to better integrate uploading files.">
+		<cfargument name="fileField" type="string" required="true"
+			hint="The name of the field in the 'form' scope. This cannot be the name in the Event object due to how CFFILE works on CFML engines." />
+		<cfargument name="destination" type="string" required="true"
+			hint="The full destination path to store the uploaded file. This must be a full path." />
+		<cfargument name="nameConflict" type="string" required="false" default="error"
+			hint="The action to take if there is a file name conflict (error, skip, override, makeUnique)." />
+		<cfargument name="accept" type="any" required="false" default="*"
+			hint="Accepts a list or array of mixed MIME types or file extensions (which must start with an '.')." />
+		<cfargument name="mode" type="string" required="false"
+			hint="For *nix operating systems only, the octal value to apply to the file for file permissiones such as read, write and execute." />
+		<cfargument name="fileAttributes" type="string" required="false"
+			hint="For Windows operatins systems only, the file attributes to set for the file (comma-delimited)." />
 		<cfreturn getAppManager().getRequestManager().getRequestHandler().getEventContext().uploadFile(argumentcollection=arguments) />
 	</cffunction>
 
@@ -304,67 +344,7 @@ quick access to things such as announcing a new event or getting/setting propert
 			hint="A struct of environment values. Key prefixed with 'group:' are treated as groups and keys can contain ',' to indicate multiple environments names or groups." />
 		<cfargument name="defaultValue" type="any" required="false"
 			hint="A default value to provide if no environment is found. An exception will be thrown if no 'defaultValue' is provide and no value can be resolved." />
-
-		<cfset var currentEnvironmentName = getAppManager().getEnvironmentName() />
-		<cfset var currentEnvironmentGroup = getAppManager().getEnvironmentGroup() />
-		<cfset var valuesByEnvironmentName = StructNew() />
-		<cfset var valuesByEnvironmentGroup = StructNew() />
-		<cfset var validEnvironmentGroupNames = getAppManager().getEnvironmentGroupNames() />
-		<cfset var scrubbedEnvironmentGroups = "" />
-		<cfset var scrubbedEnvironmentNames = "" />
-		<cfset var i = "" />
-		<cfset var key = "" />
-		<cfset var assert = getAssert() />
-		<cfset var utils = getUtils() />
-
-		<!--- Build values by name and group --->
-		<cfloop collection="#arguments.environmentValues#" item="key">
-			<!--- An environment group if it is prefixed with 'group:' --->
-			<cfif key.toLowerCase().startsWith("group:")>
-				<!--- Removed 'group:' and trim each list element --->
-				<cfset scrubbedEnvironmentGroups = utils.trimList(Right(key, Len(key) - 6)) />
-
-				<cfloop list="#scrubbedEnvironmentGroups#" index="i">
-					<cfset assert.isTrue(ListFindNoCase(validEnvironmentGroupNames, i)
-							, "An environment group named '#i#' is not a valid environment group name. Valid environment group names: '#validEnvironmentGroupNames#'.") />
-					<cfset valuesByEnvironmentGroup[i] = arguments.environmentValues[key] />
-				</cfloop>
-			<!--- An explicit environment name if it does not have a prefix --->
-			<cfelse>
-				<!--- Trim each list element --->
-				<cfset scrubbedEnvironmentNames = utils.trimList(key) />
-
-				<cfloop list="#scrubbedEnvironmentNames#" index="i">
-					<cfset valuesByEnvironmentName[i] = arguments.environmentValues[key] />
-				</cfloop>
-			</cfif>
-		</cfloop>
-
-		<!---
-			Typically, we prefer to only have one return, however in this case
-			it is easier to just short-ciruit the process.
-
-			Resolution order:
-			 * by explicit environment name
-			 * by environment group
-			 * by default value (if provided)
-			 * throw exception
-		--->
-
-		<!--- Resolve value by explicit environment name --->
-		<cfif StructKeyExists(valuesByEnvironmentName, currentEnvironmentName)>
-			<cfreturn valuesByEnvironmentName[currentEnvironmentName] />
-		</cfif>
-
-		<!--- Resolve value by explicit environment group --->
-		<cfif StructKeyExists(valuesByEnvironmentGroup, currentEnvironmentGroup)>
-			<cfreturn valuesByEnvironmentGroup[currentEnvironmentGroup] />
-		</cfif>
-
-		<!--- No environment to resolve, return default value if provided --->
-		<cfset assert.isTrue(StructKeyExists(arguments, "defaultValue")
-					, "Cannot resolve value by environment name or group and no default value was provided. Provide an explicit value by environment name, environment group or provide a default value. Current environment name: '#currentEnvironmentName#' Current environment group: '#currentEnvironmentGroup#'") />
-		<cfreturn arguments.defaultValue />
+		<cfreturn getAppManager().resolveValueByEnvironment(arguments.environmentValues, arguments.defaultValue) />
 	</cffunction>
 
 	<cffunction name="setParameter" access="public" returntype="void" output="false"
@@ -424,6 +404,12 @@ quick access to things such as announcing a new event or getting/setting propert
 		<cfargument name="defaultValue" type="any" required="false" default=""
 			hint="The default value to use if the requested property is not defined." />
 		<cfreturn getPropertyManager().getProperty(arguments.propertyName, arguments.defaultValue) />
+	</cffunction>
+	<cffunction name="isPropertyDefined" access="public" returntype="boolean" output="false"
+		hint="Checks if property name is defined in the properties - this is just a shortcutfor getPropertyManager().isPropertyDefined(). Does NOT check a parent.">
+		<cfargument name="propertyName" type="string" required="true"
+			hint="The named of the property to check if it is defined." />
+		<cfreturn getPropertyManager().isPropertyDefined(arguments.propertyName) />
 	</cffunction>
 
 	<!---
@@ -520,7 +506,7 @@ quick access to things such as announcing a new event or getting/setting propert
 	<cffunction name="setParameters" access="public" returntype="void" output="false"
 		hint="Sets the full set of configuration parameters for the component.">
 		<cfargument name="parameters" type="struct" required="true"
-			hint="Struct to set as parameters" />
+			hint="Struct to set as parameters." />
 
 		<cfset var key = "" />
 

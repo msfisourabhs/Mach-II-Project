@@ -21,30 +21,30 @@
     conditions of the GNU General Public License cover the whole
     combination.
 
-	As a special exception, the copyright holders of this library give you 
-	permission to link this library with independent modules to produce an 
-	executable, regardless of the license terms of these independent 
-	modules, and to copy and distribute the resultant executable under 
-	the terms of your choice, provided that you also meet, for each linked 
+	As a special exception, the copyright holders of this library give you
+	permission to link this library with independent modules to produce an
+	executable, regardless of the license terms of these independent
+	modules, and to copy and distribute the resultant executable under
+	the terms of your choice, provided that you also meet, for each linked
 	independent module, the terms and conditions of the license of that
-	module.  An independent module is a module which is not derived from 
-	or based on this library and communicates with Mach-II solely through 
-	the public interfaces* (see definition below). If you modify this library, 
-	but you may extend this exception to your version of the library, 
-	but you are not obligated to do so. If you do not wish to do so, 
+	module.  An independent module is a module which is not derived from
+	or based on this library and communicates with Mach-II solely through
+	the public interfaces* (see definition below). If you modify this library,
+	but you may extend this exception to your version of the library,
+	but you are not obligated to do so. If you do not wish to do so,
 	delete this exception statement from your version.
 
 
-	* An independent module is a module which not derived from or based on 
-	this library with the exception of independent module components that 
-	extend certain Mach-II public interfaces (see README for list of public 
+	* An independent module is a module which not derived from or based on
+	this library with the exception of independent module components that
+	extend certain Mach-II public interfaces (see README for list of public
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: RequestManager.cfc 2258 2010-07-29 04:31:19Z peterjfarrell $
+$Id: $
 
 Created version: 1.5.0
-Updated version: 1.8.0
+Updated version: 1.9.0
 
 Notes:
 --->
@@ -57,7 +57,8 @@ Notes:
 	PROPERTIES
 	--->
 	<cfset variables.appManager = "" />
-	<cfset variables.requestHandler = "" />
+	<cfset variables.propertyManager = "" />
+	<cfset variables.utils = "" />
 	<cfset variables.defaultUrlBase = "" />
 	<cfset variables.eventParameter = "" />
 	<cfset variables.parameterPrecedence = "" />
@@ -67,17 +68,29 @@ Notes:
 	<cfset variables.queryStringDelimiter = "" />
 	<cfset variables.seriesDelimiter ="" />
 	<cfset variables.pairDelimiter = "" />
-	<cfset varibales.moduleDelimiter = "" />
+	<cfset variables.moduleDelimiter = "" />
+	<cfset variables.urlZeroLengthStringRepresentation = "" />
 	<cfset variables.maxEvents = 0 />
 	<cfset variables.onRequestEndCallbacks = ArrayNew(1) />
 	<cfset variables.preRedirectCallbacks = ArrayNew(1) />
 	<cfset variables.postRedirectCallbacks = ArrayNew(1) />
 	<cfset variables.callbackGroupNames = "onRequestEndCallbacks,preRedirectCallbacks,postRedirectCallbacks" />
 	<cfset variables.requestRedirectPersist = "" />
+	<cfset variables.rewriteConfigFileOn = false />
+	<cfset variables.rewriteConfigFile = "rewriteRules.cfm" />
+	<cfset variables.rewriteBaseFileName = "index.cfm" />
 	<cfset variables.log = "" />
 	<cfset variables.routes = StructNew() />
 	<cfset variables.routeAliases = StructNew() />
 	<cfset variables.moduleNames = "" />
+	<cfset variables.currentThreads = StructNew() />
+	<cfset variables.trackCurrentThreads = false />
+	<cfset variables.thread = CreateObject("java", "java.lang.Thread") />
+	<cfset variables.id = CreateUUID() />
+	<cfset variables.requestHandlerTarget = "" />
+	<cfset variables.eventQueueTarget = "" />
+	<cfset variables.eventContextTarget = "" />
+	<cfset variables.viewContextTarget = "" />
 
 	<!---
 	INITIALIZATION / CONFIGURATION
@@ -88,7 +101,15 @@ Notes:
 			hint="Sets the base AppManager." />
 
 		<cfset setAppManager(arguments.appManager) />
+		<cfset setPropertyManager(arguments.appManager.getPropertyManager()) />
+		<cfset setUtils(arguments.appManager.getUtils()) />
 		<cfset setLog(arguments.appManager.getLogFactory()) />
+
+		<!--- Set objects to duplicate for performance --->
+		<cfset variables.requestHandlerTarget = CreateObject("component", "MachII.framework.RequestHandler") />
+		<cfset variables.eventQueueTarget = CreateObject("component", "MachII.util.SizedQueue") />
+		<cfset variables.eventContextTarget = CreateObject("component", "MachII.framework.EventContext") />
+		<cfset variables.viewContextTarget = CreateObject("component", "MachII.framework.ViewContext") />
 
 		<cfreturn this />
 	</cffunction>
@@ -97,17 +118,40 @@ Notes:
 		hint="Configures properties required to manage requests.">
 
 		<cfset var urlDelimiters = "" />
+		<cfset var temp = "" />
 
 		<!--- Setup defaults --->
 		<cfset urlDelimiters = getPropertyManager().getProperty("urlDelimiters") />
 		<cfset setDefaultUrlBase(getPropertyManager().getProperty("urlBase")) />
+		<cfset setDefaultUrlSecureBase(getPropertyManager().getProperty("urlSecureBase")) />
 		<cfset setEventParameter(getPropertyManager().getProperty("eventParameter")) />
 		<cfset setParameterPrecedence(getPropertyManager().getProperty("parameterPrecedence")) />
 		<cfset setParseSES(getPropertyManager().getProperty("urlParseSES")) />
 		<cfset setUrlExcludeEventParameter(getPropertyManager().getProperty("urlExcludeEventParameter")) />
+		<cfset setUrlZeroLengthStringRepresentation(getPropertyManager().getProperty("urlZeroLengthStringRepresentation")) />
 		<cfset setModuleDelimiter(getPropertyManager().getProperty("moduleDelimiter")) />
 		<cfset setMaxEvents(getPropertyManager().getProperty("maxEvents")) />
-		<cfset setModuleNames(StructKeyArray(getAppManager().getModuleManager().getModules())) />
+		<cfset setModuleNames(getAppManager().getModuleManager().getModuleNames()) />
+
+		<!--- TODO: Check if the urlBase and urlSecureBase need to be dynamic server names --->
+
+		<cfif NOT getPropertyManager().isPropertyDefined("urlSecureBase")>
+			<cfset temp =  getPropertyManager().getProperty("urlBase") />
+
+			<!--- If urlBase is fully qualified URL --->
+			<cfif temp.toLowerCase().startsWith("http://")>
+				<cfset temp = ReplaceNoCase(temp, "http://", "https://", "one") />
+			</cfif>
+
+			<cfset getPropertyManager().setProperty("urlSecureBase", temp) />
+		</cfif>
+		<cfif NOT getPropertyManager().isPropertyDefined("urlSecureBaseCheckServerName")>
+			<cfset temp =  getPropertyManager().getProperty("urlSecureBase") />
+
+			<cfif ListLen(temp, "//") GTE 2>
+				<cfset getPropertyManager().setProperty("urlSecureBaseCheckServerName", ListFirst(ListGetAt(temp, 2, "//")), "/") />
+			</cfif>
+		</cfif>
 
 		<!--- Parse through the complex list of delimiters --->
 		<cfset setQueryStringDelimiter(ListGetAt(urlDelimiters, 1, "|")) />
@@ -140,10 +184,17 @@ Notes:
 		hint="Returns a new or cached instance of a RequestHandler.">
 
 		<cfset var appKey = getAppManager().getAppKey() />
+		<cfset var currentThread = "" />
 
 		<cfif NOT StructKeyExists(request, "_MachIIRequestHandler_" & appKey)>
+			<cfif variables.trackCurrentThreads>
+				<cfset currentThread = variables.thread.currentThread() />
+				<cfset currentThread.setName(variables.id) />
+				<cfset variables.currentThreads[currentThread.getId()] = currentThread />
+			</cfif>
+
 			<cfset request["_MachIIRequestHandler_" & appKey] =
-					CreateObject("component", "MachII.framework.RequestHandler").init(getAppManager(), getEventParameter(), getParameterPrecedence(), getModuleDelimiter(), getMaxEvents(), getOnRequestEndCallbacks()) />
+					Duplicate(variables.requestHandlerTarget).init(getAppManager(), getEventParameter(), getParameterPrecedence(), getModuleDelimiter(), getMaxEvents(), getOnRequestEndCallbacks(), variables.eventQueueTarget, variables.eventContextTarget, variables.viewContextTarget) />
 		</cfif>
 
 		<cfreturn request["_MachIIRequestHandler_" & appKey]  />
@@ -157,25 +208,31 @@ Notes:
 		<cfargument name="persist" type="boolean" required="false" default="false" />
 		<cfargument name="persistArgs" type="struct" required="false" default="#StructNew()#" />
 		<cfargument name="statusType" type="string" required="false" default="" />
+		<cfargument name="urlBase" type="string" required="false" default=""
+			hint="Base of the url. Defaults to the value of the urlBase property." />
 
 		<cfset var redirectToUrl =  ""/>
 		<cfset var persistId =  "" />
-		<cfset var redirectPersistParam = getAppManager().getPropertyManager().getProperty("redirectPersistParameter", "persistId") />
+		<cfset var data =  StructNew() />
+		<cfset var redirectPersistParam = getPropertyManager().getProperty("redirectPersistParameter", "persistId") />
 
 		<!--- Delete the event name from the args if it exists so a redirect loop doesn't occur --->
 		<cfset StructDelete(arguments.eventArgs, getEventParameter(), FALSE) />
 		<cfset StructDelete(arguments.persistArgs, getEventParameter(), FALSE) />
 
+		<cfset data = invokePreRedirectCallbacks(arguments.persist) />
+
+		<!--- Build persist data and id if required --->
 		<cfif arguments.persist>
-			<cfset persistId = savePersistEventData(arguments.persistArgs) />
+			<cfset persistId = savePersistEventData(arguments.persistArgs, data) />
+
+			<!--- Add the persistId parameter to the url args if persist is required --->
+			<cfif getPropertyManager().getProperty("redirectPersistParameterLocation") NEQ "cookie">
+				<cfset arguments.eventArgs[redirectPersistParam] = persistId />
+			</cfif>
 		</cfif>
 
-		<!--- Add the persistId parameter to the url args if persist is required --->
-		<cfif arguments.persist AND getAppManager().getPropertyManager().getProperty("redirectPersistParameterLocation") NEQ "cookie">
-			<cfset arguments.eventArgs[redirectPersistParam] = persistId />
-		</cfif>
-
-		<cfset redirectToUrl = buildUrl(arguments.moduleName, arguments.eventName, arguments.eventArgs) />
+		<cfset redirectToUrl = buildUrl(arguments.moduleName, arguments.eventName, arguments.eventArgs, arguments.urlBase) />
 
 		<cfset redirectUrl(redirectToUrl, arguments.statusType) />
 	</cffunction>
@@ -187,19 +244,32 @@ Notes:
 		<cfargument name="persist" type="boolean" required="false" default="false" />
 		<cfargument name="persistArgs" type="struct" required="false" default="#StructNew()#" />
 		<cfargument name="statusType" type="string" required="false" default="" />
+		<cfargument name="urlBase" type="string" required="false" default=""
+			hint="Base of the url. Defaults to the value of the urlBase property." />
 
 		<cfset var redirectToUrl = "" />
 		<cfset var persistId = "" />
+		<cfset var data = StructNew() />
+		<cfset var queryStringParams = StructNew() />
+		<cfset var redirectPersistParam = getPropertyManager().getProperty("redirectPersistParameter", "persistId") />
 
 		<!--- Delete the event name from the args if it exists so a redirect loop doesn't occur --->
 		<cfset StructDelete(arguments.routeArgs, getEventParameter(), FALSE) />
 		<cfset StructDelete(arguments.persistArgs, getEventParameter(), FALSE) />
 
+		<cfset data = invokePreRedirectCallbacks(arguments.persist) />
+
+		<!--- Build persist data and id if required --->
 		<cfif arguments.persist>
-			<cfset persistId = savePersistEventData(arguments.persistArgs) />
+			<cfset persistId = savePersistEventData(arguments.persistArgs, data) />
+
+			<!--- Add the persistId parameter to the url args if persist is required --->
+			<cfif getPropertyManager().getProperty("redirectPersistParameterLocation") NEQ "cookie">
+				<cfset queryStringParams[redirectPersistParam] = persistId />
+			</cfif>
 		</cfif>
 
-		<cfset redirectToUrl = buildRouteUrl(arguments.routeName, arguments.routeArgs) />
+		<cfset redirectToUrl = buildRouteUrl(arguments.routeName, arguments.routeArgs, queryStringParams, arguments.urlBase) />
 
 		<cfset redirectUrl(redirectToUrl, arguments.statusType) />
 	</cffunction>
@@ -209,6 +279,8 @@ Notes:
 			hint="An URL to redirect to." />
 		<cfargument name="statusType" type="string" required="false" default="temporary"
 			hint="The status type to use. Valid option: 'permanent' (301), 'prg' (303 - See Other), 'temporary' (302) [default option]" />
+
+		<cfset getRequestHandler().getLog().info("End processing request. Redirect sequence in progress.") />
 
 		<!--- Redirect based on the HTTP status type --->
 		<cfif arguments.statusType EQ "permanent">
@@ -231,7 +303,7 @@ Notes:
 		hint="Builds a framework specific url and automatically escapes entities for html display.">
 		<cfargument name="moduleName" type="string" required="true"
 			hint="Name of the module to build the url with." />
-		<cfargument name="urlParameters" type="any" required="false" default=""
+		<cfargument name="urlParameters" type="any" required="false" default="#StructNew()#"
 			hint="Name/value pairs (urlArg1=value1|urlArg2=value2) to replace or add into the current url with or a struct of data." />
 		<cfargument name="urlParametersToRemove" type="string" required="false" default=""
 			hint="Comma delimited list of url parameter names of items to remove from the current url" />
@@ -244,25 +316,30 @@ Notes:
 		<cfset var routeName = getRequestHandler().getCurrentRouteName() />
 		<cfset var currentSESParams = getRequestHandler().getCurrentSESParams() />
 		<cfset var moduleDelimiter = getModuleDelimiter() />
-		<cfset var log = getLog() />
+		<cfset var urlScopeNames = getPageContext().getRequest().getParameterNames() />
+
+		<cfset arguments.urlParameters = getUtils().parseAttributesIntoStruct(arguments.urlParameters) />
 
 		<!--- Automatically remove the Mach II redirect persist id from the url params --->
-		<cfset arguments.urlParametersToRemove = ListAppend(arguments.urlParametersToRemove, "persistId")>
+		<cfset arguments.urlParametersToRemove = ListAppend(arguments.urlParametersToRemove, getPropertyManager().getProperty("redirectPersistParameter")) />
 
-		<cfloop collection="#url#" item="key">
-			<cfif NOT StructKeyExists(params, key) AND key neq eventParameterName
+		<!--- Use the iterator so the url key names are in the right case --->
+		<cfloop condition="#urlScopeNames.hasMoreElements()#">
+			<cfset key = urlScopeNames.nextElement() />
+			<cfif NOT StructKeyExists(params, key) AND key NEQ eventParameterName
 				AND NOT ListFindNoCase(arguments.urlParametersToRemove, key)>
-				<cfset arguments.urlParameters = ListAppend(arguments.urlParameters, "#key#=#url[key]#", "|") />
+				<cfset arguments.urlParameters[key] = url[key] />
 			</cfif>
 		</cfloop>
 
+		<!--- Build route --->
 		<cfif Len(routeName)>
-			<cfset log.debug("Building route url for route '#routeName#'") />
-
 			<cfreturn buildRouteUrl(routeName, getRequestHandler().getCurrentRouteParams(), arguments.urlParameters) />
+
+		<!--- Build normal event with SES --->
 		<cfelseif StructCount(currentSESParams)>
 			<cfloop collection="#currentSESParams#" item="key">
-				<cfif key eq getEventParameter()>
+				<cfif key eq eventParameterName>
 					<cfset eventName = currentSESParams[key] />
 					<cfif ListLen(eventName, moduleDelimiter) GT 1>
 						<cfset parsedModuleName = ListGetAt(eventName, 1, moduleDelimiter) />
@@ -270,13 +347,15 @@ Notes:
 					<cfelse>
 						<cfset parsedModuleName = arguments.moduleName />
 					</cfif>
-				<cfelseif NOT StructKeyExists(params, key) AND key neq eventParameterName
-					AND NOT ListFindNoCase(arguments.urlParametersToRemove, key)>
-					<cfset arguments.urlParameters = ListAppend(arguments.urlParameters, "#key#=#currentSESParams[key]#", "|") />
+				<!--- No need to check if the key is the eventParameter in this condition because the first condition would catch it --->
+				<cfelseif NOT StructKeyExists(params, key) AND NOT ListFindNoCase(arguments.urlParametersToRemove, key)>
+					<cfset arguments.urlParameters[key] = currentSESParams[key] />
 				</cfif>
 			</cfloop>
 
 			<cfreturn buildUrl(parsedModuleName, eventName, arguments.urlParameters) />
+
+		<!--- Build normal event without SES --->
 		<cfelse>
 			<cfif isDefined("url.#eventParameterName#")>
 				<cfset eventName = url[eventParameterName] />
@@ -304,18 +383,58 @@ Notes:
 			hint="Name of the event to build the url with." />
 		<cfargument name="urlParameters" type="any" required="false" default=""
 			hint="Name/value pairs (urlArg1=value1|urlArg2=value2) to build the url with or a struct of data." />
-		<cfargument name="urlBase" type="string" required="false" default="#getDefaultUrlBase()#"
+		<cfargument name="urlBase" type="string" required="false"
 			hint="Base of the url. Defaults to the value of the urlBase property." />
 
 		<cfset var builtUrl = "" />
 		<cfset var queryString = "" />
-		<cfset var params = getUtils().parseAttributesIntoStruct(arguments.urlParameters) />
+		<cfset var params = StructNew() />
 		<cfset var value = "" />
 		<cfset var i = "" />
-		<cfset var keyList = StructKeyList(params) />
+		<cfset var keyList = "" />
 		<cfset var seriesDelimiter = getSeriesDelimiter() />
 		<cfset var pairDelimiter = getPairDelimiter() />
 		<cfset var parseSes = getParseSes() />
+		<cfset var eventManager = "" />
+		<cfset var secureType = -1 />
+
+		<!--- This was moved out the var block to pass the bug in var scope that is getting fixed --->
+		<cfset params = getUtils().parseAttributesIntoStruct(arguments.urlParameters) />
+		<cfset keyList = StructKeyList(params) />
+
+		<cfif NOT StructKeyExists(arguments, "urlBase") OR NOT Len(arguments.urlBase)>
+			<cfif getPropertyManager().getProperty("urlSecureEnabled")>
+				<cftry>
+					<cfif Len(arguments.moduleName)>
+						<cfset eventManager = getAppManager().getModuleManager().getModule(arguments.moduleName).getModuleAppManager().getEventManager() />
+					<cfelse>
+						<cfset eventManager = getAppManager().getEventManager() />
+					</cfif>
+
+					<cfset secureType = eventManager.getEventSecureType(arguments.eventName) />
+					<cfcatch type="MachII.framework.ModuleFailedToLoad">
+						<!--- If module:disableOnFailure is turned on, we need to ignore this exception
+							and assume ambiguous secure type. This allows the url to build.  The exception
+							will be thrown later when an event for that module is requested   --->
+					</cfcatch>
+				</cftry>
+
+				<!--- If event handler secure type is ambiguous (-1), then default to the current secure type this request --->
+				<cfif secureType EQ -1>
+					<cfif cgi.SERVER_PORT_SECURE>
+						<cfset arguments.urlBase = getDefaultUrlSecureBase() />
+					<cfelse>
+						<cfset arguments.urlBase = getDefaultUrlBase() />
+					</cfif>
+				<cfelseif secureType EQ 1>
+					<cfset arguments.urlBase = getDefaultUrlSecureBase() />
+				<cfelse>
+					<cfset arguments.urlBase = getDefaultUrlBase() />
+				</cfif>
+			<cfelse>
+				<cfset arguments.urlBase = getDefaultUrlBase() />
+			</cfif>
+		</cfif>
 
 		<!--- Nested the appending of the event parameter inside the next block
 			Moving it causes redirect commands with just urls to wrongly append
@@ -347,7 +466,7 @@ Notes:
 					<cfset params[i] = Replace(params[i], ";", "U_03B", "all") />
 				</cfif>
 				<cfif NOT Len(params[i]) AND seriesDelimiter EQ pairDelimiter AND parseSes>
-					<cfset params[i] = "_-_NULL_-_" />
+					<cfset params[i] = variables.urlZeroLengthStringRepresentation />
 				</cfif>
 				<cfset queryString = queryString & seriesDelimiter & i & pairDelimiter & URLEncodedFormat(params[i]) />
 			</cfif>
@@ -374,12 +493,45 @@ Notes:
 			hint="Name/value pairs (urlArg1=value1|urlArg2=value2) to build the url with or a struct of data." />
 		<cfargument name="queryStringParameters" type="any" required="false" default=""
 			hint="Name/value pairs (urlArg1=value1|urlArg2=value2) to build the url with or a struct of query string parameters to append to end of the route." />
-		<cfargument name="urlBase" type="string" required="false" default="#getDefaultUrlBase()#"
+		<cfargument name="urlBase" type="string" required="false"
 			hint="Base of the url. Defaults to the value of the urlBase property." />
 
 		<cfset var params = getUtils().parseAttributesIntoStruct(arguments.urlParameters) />
 		<cfset var parsedQueryStringParams = getUtils().parseAttributesIntoStruct(arguments.queryStringParameters) />
 		<cfset var route = getRoute(arguments.routeName) />
+		<cfset var moduleName = route.getModuleName() />
+		<cfset var eventName = route.getEventName() />
+		<cfset var eventManager = "" />
+		<cfset var secureType = -1 />
+
+		<cfif NOT StructKeyExists(arguments, "urlBase") OR NOT Len(arguments.urlBase)>
+			<cftry>
+				<cfif Len(moduleName)>
+					<cfset eventManager = getAppManager().getModuleManager().getModule(moduleName).getModuleAppManager().getEventManager() />
+				<cfelse>
+					<cfset eventManager = getAppManager().getEventManager() />
+				</cfif>
+
+				<cfset secureType = eventManager.getEventSecureType(eventName) />
+				<cfcatch type="MachII.framework.ModuleFailedToLoad">
+					<!--- If module:disableOnFailure is turned on, we need to ignore this exception
+						and assume ambiguous secure type. This allows the url to build.  The exception
+						will be thrown later when an event for that module is requested   --->
+				</cfcatch>
+			</cftry>
+			<!--- If event handler securt type is ambigous (-1), then default to the current secure type this request --->
+			<cfif secureType EQ -1>
+				<cfif cgi.SERVER_PORT_SECURE>
+					<cfset arguments.urlBase = getDefaultUrlSecureBase() />
+				<cfelse>
+					<cfset arguments.urlBase = getDefaultUrlBase() />
+				</cfif>
+			<cfelseif secureType EQ 1>
+				<cfset arguments.urlBase = getDefaultUrlSecureBase() />
+			<cfelse>
+				<cfset arguments.urlBase = getDefaultUrlBase() />
+			</cfif>
+		</cfif>
 
 		<cfreturn route.buildRouteUrl(params, parsedQueryStringParams, arguments.urlBase, getSeriesDelimiter(), getQueryStringDelimiter()) />
 	</cffunction>
@@ -458,6 +610,133 @@ Notes:
 	<!---
 	PUBLIC FUNCTIONS - UTIL
 	--->
+	<cffunction name="createRewriteConfigFile" access="public" returntype="void" output="false"
+		hint="Creates a rewrite config file.">
+
+		<cfset var lf = Chr(10) />
+		<cfset var configFilePath = ExpandPath(getRewriteConfigFile()) />
+		<cfset var contents = CreateObject("java", "java.lang.StringBuffer") />
+		<cfset var eventParameter = getPropertyManager().getProperty("eventParameter") />
+		<cfset var endpointParameter = getPropertyManager().getProperty("endpointParameter") />
+		<cfset var urlBase = getPropertyManager().getProperty("urlBase") />
+		<cfset var rewriteBase = "" />
+		<cfset var rewriteBaseFileName = getRewriteBaseFileName() />
+		<cfset var routeNames = StructKeyArray(getRoutes()) />
+		<cfset var endpointNames = getAppManager().getEndpointManager().getEndpointNames() />
+		<cfset var route = 0 />
+		<cfset var i = 0 />
+
+		<cfif getRewriteConfigFileOn()>
+
+			<!--- Clean up the appRoot --->
+			<cfif NOT urlBase.endsWith("/")>
+				<cfset urlBase = urlBase & "/" />
+			</cfif>
+
+			<!--- Build rewrite rules --->
+			<!--- Some CFML engines do no obey enable cfouput only use cfsilent is required as well --->
+			<cfset contents.append('#### <cfsilent><cfsetting enablecfoutputonly="true"/>' & lf) />
+			<cfset contents.append("#### Date Generated: #dateFormat(now(), "m/d/yyyy")# #timeFormat(now(), "h:mm tt")#" & lf) />
+			<cfset contents.append(lf) />
+			<cfset contents.append("RewriteEngine on" & lf) />
+			<cfset contents.append(lf) />
+
+			<!---
+				RewriteBase cannot be located in a basic http.conf or virtual host so only write
+				it if the Mach-II application does not live in the root of the host.
+			--->
+			<cfif urlBase NEQ "/" AND getPropertyManager().getProperty("urlRewriteBaseEnabled", true)>
+				<cfset contents.append("RewriteBase " & urlBase & lf) />
+				<cfset contents.append(lf) />
+				<cfset rewriteBase = "" />
+			<cfelse>
+				<cfset rewriteBase = "/" />
+			</cfif>
+
+			<!---
+				Check if requested file name is a real file, directory or symbolic link before
+				evaluating all the rewrite rules. This is for performance.
+
+				We use document_root and request_uri because request_filename does not work unless nested in a <directory>
+				node in Apache.  When nesting in a <directory> node and using a proxy to a servlet engine like Tomcat,
+				none of the rewrite rules are checked.
+			--->
+			<cfset contents.append("#### Check if the requested file name is a real file for performance" & lf) />
+			<cfset contents.append("RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -f [OR]" & lf) />
+			<cfset contents.append("RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -d [OR]" & lf) />
+			<cfset contents.append("RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} -l" & lf) />
+			<cfset contents.append("RewriteRule ^(.*)$ - [PT,L]" & lf) />
+			<cfset contents.append(lf) />
+
+			<!--- Add standard url rule (e.g. with event parameter) --->
+			<cfset contents.append("#### Rewrite any URIs that start with the event parameter" & lf) />
+			<cfset contents.append("RewriteRule ^" & rewriteBase & eventParameter & "(/.*)?$ " & rewriteBase & rewriteBaseFileName & "/" & eventParameter & "/$1 [PT,L]" & lf) />
+			<cfset contents.append(lf) />
+
+			<!--- Add standard url rule (e.g. with endpoint parameter) --->
+			<cfset contents.append("#### Rewrite any URIs that start with the endpoint parameter" & lf) />
+			<cfset contents.append("RewriteRule ^" & rewriteBase & endpointParameter & "(/.*)?$ " & rewriteBase & rewriteBaseFileName & "/" & endpointParameter & "/$1 [PT,L]" & lf) />
+			<cfset contents.append(lf) />
+
+			<!--- Add all the endpoint --->
+			<cfset contents.append("#### Rewrite all base endpoints" & lf) />
+			<cfloop from="1" to="#ArrayLen(endpointNames)#" index="i">
+				<cfset contents.append("RewriteRule ^" & rewriteBase & endpointNames[i] & "(/.*)?$ " & rewriteBase & rewriteBaseFileName & "/" & endpointNames[i] & "$1 [PT,L]" & lf) />
+			</cfloop>
+			<cfset contents.append(lf) />
+
+			<!--- Add all the routes --->
+			<cfset contents.append("#### Rewrite all base URL routes" & lf) />
+			<cfloop from="1" to="#ArrayLen(routeNames)#" index="i">
+				<cfset route = getRoute(routeNames[i]) />
+				<!---
+				 Because the base has been defined we dont use it here. Additionally we can end the rule without the
+				 trailing forward slash as many users may not type this. If a slash is found then we can also grab any
+				 other params that may or may not be following it. This allows us to match the following type of urls:
+
+				 news
+				 news/
+				 news/1
+				 news/1/
+				 newsArticle
+				 newsArticle/
+				 newsArticle/1
+				 newsArticle/1/
+
+				 And if someone happened to type in: newss they would be routed to index.cfm/event/newss where the
+				 exception handling of the framework could divert the missing event name (provided newss didnt exist)
+				 --->
+				<cfset contents.append("RewriteRule ^" & rewriteBase & route.getUrlAlias() & "(/.*)?$ " & rewriteBase & rewriteBaseFileName & "/" & route.getUrlAlias() & "$1 [PT,L]" & lf) />
+			</cfloop>
+			<cfset contents.append(lf) />
+
+			<!--- Add a catch all to run all request through Mach-II if it's not a real file and there is not index.cfm in the URL  --->
+			<cfif getPropertyManager().getProperty("urlExcludeEventParameter", false)>
+				<cfset contents.append("#### Catch all for all requests if not a real file and does not contain index.cfm" & lf) />
+				<cfset contents.append("RewriteCond $1 !^index\.cfm" & lf) />
+				<cfset contents.append("RewriteRule ^" & rewriteBase & "(.*)?$ " & rewriteBase & rewriteBaseFileName & "/$1 [PT,L]" & lf) />
+				<cfset contents.append(lf) />
+			</cfif>
+
+			<!--- The ampersand in the middle of the append is so that CFEclipse does think this is invalid code --->
+			<cfset contents.append('#### <cfsetting enablecfoutputonly="false"/></' & 'cfsilent>' & lf) />
+
+			<!--- Write to file --->
+			<cftry>
+				<cffile action="write"
+					file="#configFilePath#"
+					output="#contents.toString()#"
+					mode="777"
+					attributes="normal" />
+				<cfcatch type="any">
+					<cfthrow type="MachII.framework.RulesWritePermissions"
+						message="Cannot write rewrite rules file to '#configFilePath#'. Does your CFML engine have write permissions to this directory?"
+						detail="#getUtils().buildMessageFromCfCatch(cfcatch)#" />
+				</cfcatch>
+			</cftry>
+
+		</cfif>
+	</cffunction>
 
 	<!---
 	REDIRECT PERSIST
@@ -466,22 +745,14 @@ Notes:
 		hint="Saves persisted event data and returns the persistId.">
 		<cfargument name="eventArgs" type="struct" required="true"
 			hint="A struct of event-args to persist." />
+		<cfargument name="data" type="struct" required="false" default="#StructNew()#"
+			hint="A struct of data to persist. Creates a new struct if not passed." />
 
 		<cfset var persistId = "" />
-		<cfset var data = StructNew() />
-		<cfset var preRedirectCallbacks = getPreRedirectCallbacks() />
-		<cfset var i = "" />
 
-		<cfloop from="1" to="#ArrayLen(preRedirectCallbacks)#" index="i">
-			<cfinvoke component="#preRedirectCallbacks[i].callback#"
-				method="#preRedirectCallbacks[i].method#">
-				<cfinvokeargument name="data" value="#data#" />
-			</cfinvoke>
-		</cfloop>
+		<cfset arguments.data.eventArgs = arguments.eventArgs />
 
-		<cfset data.eventArgs = arguments.eventArgs />
-
-		<cfset persistId = getRequestRedirectPersist().save(data) />
+		<cfset persistId = getRequestRedirectPersist().save(arguments.data) />
 
 		<cfif getPropertyManager().getProperty("redirectPersistParameterLocation") EQ "cookie">
 			<cfcookie name="#getPropertyManager().getProperty("redirectPersistParameter")#" value="#persistId#" />
@@ -495,7 +766,6 @@ Notes:
 			hint="The current eventArgs to append the redirect persist event args to via a reference." />
 
 		<cfset var data = "" />
-		<cfset var postRedirectCallbacks = getPostRedirectCallbacks() />
 		<cfset var i = "" />
 		<cfset var parameterId = getPropertyManager().getProperty("redirectPersistParameter") />
 
@@ -511,9 +781,9 @@ Notes:
 		<!--- If there is data, run post-redirect callbacks --->
 		<cfif StructCount(data)>
 
-			<cfloop from="1" to="#ArrayLen(postRedirectCallbacks)#" index="i">
-				<cfinvoke component="#postRedirectCallbacks[i].callback#"
-					method="#postRedirectCallbacks[i].method#">
+			<cfloop from="1" to="#ArrayLen(variables.postRedirectCallbacks)#" index="i">
+				<cfinvoke component="#variables.postRedirectCallbacks[i].callback#"
+					method="#variables.postRedirectCallbacks[i].method#">
 					<cfinvokeargument name="data" value="#data#" />
 				</cfinvoke>
 			</cfloop>
@@ -537,11 +807,10 @@ Notes:
 		hint="Removes an onRequestEndCallback from the stack by passing in the callback object.">
 		<cfargument name="callback" type="any" required="true" />
 
-		<cfset var utils = getAppManager().getUtils() />
 		<cfset var i = 0 />
 
 		<cfloop from="1" to="#ArrayLen(variables.onRequestEndCallbacks)#" index="i">
-			<cfif utils.assertSame(variables.onRequestEndCallbacks[i].callback, arguments.callback)>
+			<cfif getUtils().assertSame(variables.onRequestEndCallbacks[i].callback, arguments.callback)>
 				<cfset ArrayDeleteAt(variables.onRequestEndCallbacks, i) />
 				<cfbreak />
 			</cfif>
@@ -562,11 +831,10 @@ Notes:
 		hint="Removes an preRedirect from the stack by passing in the callback object.">
 		<cfargument name="callback" type="any" required="true" />
 
-		<cfset var utils = getAppManager().getUtils() />
 		<cfset var i = 0 />
 
 		<cfloop from="1" to="#ArrayLen(variables.preRedirectCallbacks)#" index="i">
-			<cfif utils.assertSame(variables.preRedirectCallbacks[i].callback, arguments.callback)>
+			<cfif getUtils().assertSame(variables.preRedirectCallbacks[i].callback, arguments.callback)>
 				<cfset ArrayDeleteAt(variables.preRedirectCallbacks, i) />
 				<cfbreak />
 			</cfif>
@@ -587,11 +855,10 @@ Notes:
 		hint="Removes an postRedirect from the stack by passing in the callback object.">
 		<cfargument name="callback" type="any" required="true" />
 
-		<cfset var utils = getAppManager().getUtils() />
 		<cfset var i = 0 />
 
 		<cfloop from="1" to="#ArrayLen(variables.postRedirectCallbacks)#" index="i">
-			<cfif utils.assertSame(variables.postRedirectCallbacks[i].callback, arguments.callback)>
+			<cfif getUtils().assertSame(variables.postRedirectCallbacks[i].callback, arguments.callback)>
 				<cfset ArrayDeleteAt(variables.postRedirectCallbacks, i) />
 				<cfbreak />
 			</cfif>
@@ -608,7 +875,7 @@ Notes:
 	<cffunction name="addRoute" access="public" returntype="void" output="false"
 		hint="Adds a route by route name.">
 		<cfargument name="routeName" type="string" required="true" />
-		<cfargument name="route" type="MachII.framework.UrlRoute" required="true" />
+		<cfargument name="route" type="MachII.framework.url.UrlRoute" required="true" />
 		<cfargument name="overwrite" type="boolean" required="false" default="false" />
 
 		<!--- Check for name conflicts if this is not an overwrite --->
@@ -640,7 +907,7 @@ Notes:
 			<cfset StructDelete(variables.routeAliases, route.getUrlAlias(), false) />
 		</cfif>
 	</cffunction>
-	<cffunction name="getRoute" access="public" returntype="MachII.framework.UrlRoute" output="false"
+	<cffunction name="getRoute" access="public" returntype="MachII.framework.url.UrlRoute" output="false"
 		hint="Gets a route by route name.">
 		<cfargument name="routeNameOrUrlAlias" type="string" required="true" />
 
@@ -652,7 +919,8 @@ Notes:
 			<cfreturn variables.routes[variables.routeAliases[arguments.routeNameOrUrlAlias]] />
 		<cfelse>
 			<cfthrow type="MachII.RequestManager.NoRouteConfigured"
-				message="No named route or route url alias of '#arguments.routeNameOrUrlAlias#' could be found." />
+				message="No named route or route url alias of '#arguments.routeNameOrUrlAlias#' could be found."
+				detail="Please check that a ROUTE is defined." />
 		</cfif>
 	</cffunction>
 	<cffunction name="getRoutes" access="public" returntype="struct" output="false"
@@ -660,8 +928,25 @@ Notes:
 		<cfreturn variables.routes />
 	</cffunction>
 
+	<cffunction name="activeCurrentThreadCount" access="public" returntype="numeric" output="false"
+		hint="Counts active current threads.">
+
+		<cfset var key = "" />
+		<cfset var result = 0 />
+
+		<cfloop collection="#variables.currentThreads#" item="key">
+			<cfif IsObject(variables.currentThreads[key])
+				AND variables.currentThreads[key].getName() EQ variables.id
+				AND NOT ListFindNoCase("RUNNABLE,TERMINATED", variables.currentThreads[key].getState().toString())>
+				<cfset result = result + 1 />
+			</cfif>
+		</cfloop>
+
+		<cfreturn result />
+	</cffunction>
+
 	<!---
-	PROTECTED FUNCTIONS
+	PROTECTED FUNCTIONS - GENERAL
 	--->
 	<cffunction name="parseNonRoute" access="private" returntype="struct" output="false"
 		hint="Parses a non-route Url elements into request data.">
@@ -678,7 +963,7 @@ Notes:
 
 		<cfif getSeriesDelimiter() EQ pairDelimiter>
 			<cfloop from="1" to="#ArrayLen(elements)#" index="i" step="2">
-				<cfif i + 1 LTE ArrayLen(elements) AND elements[i+1] NEQ "_-_NULL_-_">
+				<cfif i + 1 LTE ArrayLen(elements) AND elements[i+1] NEQ variables.urlZeroLengthStringRepresentation>
 					<cfset value = elements[i+1] />
 				<cfelse>
 					<cfset value = "" />
@@ -687,7 +972,7 @@ Notes:
 			</cfloop>
 		<cfelse>
 			<cfloop from="1" to="#ArrayLen(elements)#" index="i">
-				<cfif ListLen(elements[i], pairDelimiter) EQ 2>
+				<cfif ListLen(elements[i], pairDelimiter) EQ 2 AND ListGetAt(elements[i], 2, pairDelimiter) NEQ variables.urlZeroLengthStringRepresentation>
 					<cfset value = ListGetAt(elements[i], 2, pairDelimiter) />
 				<cfelse>
 					<cfset value = "" />
@@ -695,12 +980,14 @@ Notes:
 				<cfset params[ListGetAt(elements[i], 1, pairDelimiter)] =  value />
 			</cfloop>
 		</cfif>
+
 		<cfreturn params />
 	</cffunction>
 
 	<cffunction name="parseNonRouteModuleAndEvent" access="private" returntype="struct" output="false"
 		hint="Parses the module and/or event name out of an array of non-route URL elements. Supports a moduleDelimiter that is the same as the seriesDelimiter (as with all slashes in URL).">
 		<cfargument name="urlElements" type="array" required="true" />
+
 		<cfset var i = 0 />
 		<cfset var elements = arguments.urlElements />
 		<cfset var params = StructNew() />
@@ -713,7 +1000,10 @@ Notes:
 				<cfset hasEventParam = true />
 			</cfif>
 		<cfelse>
-			<!--- Get position in array of event parameter, if it's there (+1 for CF 1-based index) --->
+			<!---
+				Get position in array of event parameter
+				The `arrayFind` could be CFML or Java based depending on CFML engine
+			--->
 			<cfset i = arrayFind(elements, getEventParameter()) />
 			<cfif i GT 0>
 				<cfset ArrayDeleteAt(elements, i) />
@@ -723,7 +1013,7 @@ Notes:
 
 		<cfif i GT 0 AND ArrayLen(elements) GTE i>
 			<!--- Module and/or event has to be the first element --->
-			
+
 			<!--- Using moduleNames.contains() is case sensitive so convert to lower since moduleNames is all lower --->
 			<cfif moduleNames.contains(LCase(elements[i]))>
 				<cfset params[getEventParameter()] = elements[i] & getModuleDelimiter() />
@@ -753,16 +1043,18 @@ Notes:
 
 		<cfset var route = getRoute(arguments.routeName) />
 		<cfset var routeParams = 0 />
+		<cfset var rH = getRequestHandler() />
 
 		<!--- Put current route params in the request scope so we can grab them in buildCurrentUrl() --->
 		<cfset routeParams = route.parseRoute(arguments.urlElements, getModuleDelimiter(), getEventParameter()) />
-		<cfset getRequestHandler().setCurrentRouteName(arguments.routeName) />
-		<cfset getRequestHandler().setCurrentRouteParams(route.parseRouteParams(arguments.urlElements)) />
+		<cfset rH.setCurrentRouteName(arguments.routeName) />
+		<cfset rH.setCurrentRouteParams(routeParams) />
 
 		<cfreturn routeParams />
 	</cffunction>
 
-	<cffunction name="checkRouteParameterNames" access="private" returntype="void" output="false">
+	<cffunction name="checkRouteParameterNames" access="private" returntype="void" output="false"
+		hint="Checks for collisions between route names and event handler names.">
 		<cfset var route = 0 />
 		<cfset var routes = getRoutes() />
 		<cfset var index = "" />
@@ -776,6 +1068,36 @@ Notes:
 					message="A route named '#index#' with an URL alias of '#route.getUrlAlias()#' has a parameter called '#getEventParameter()#' which is same as the event parameter name. Route parameters can not have the same name as the event parameter." />
 			</cfif>
 		</cfloop>
+	</cffunction>
+
+	<cffunction name="invokePreRedirectCallbacks" access="private" returntype="struct" output="false"
+		hint="Executes all of the preRedirectCallbacks">
+		<cfargument name="persist" type="boolean" required="true" />
+
+		<cfset var data = StructNew() />
+		<cfset var i = 0 />
+		<cfset var eventContext = getRequestHandler().getEventContext() />
+		<cfset var currentEvent = "" />
+
+		<cfif eventContext.hasCurrentEvent()>
+			<cfset currentEvent = eventContext.getCurrentEvent() />
+		<cfelseif eventContext.hasNextEvent()>
+			<cfset currentEvent = eventContext.getNextEvent() />
+		<cfelse>
+			<cfset currentEvent = CreateObject("component", "MachII.framework.Event") />
+		</cfif>
+
+		<cfloop from="1" to="#ArrayLen(variables.preRedirectCallbacks)#" index="i">
+			<cfinvoke component="#variables.preRedirectCallbacks[i].callback#"
+				method="#variables.preRedirectCallbacks[i].method#">
+				<cfinvokeargument name="data" value="#data#" />
+				<cfinvokeargument name="persist" value="#arguments.persist#" />
+				<cfinvokeargument name="appManager" value="#getAppManager()#" />
+				<cfinvokeargument name="event" value="#currentEvent#" />
+			</cfinvoke>
+		</cfloop>
+
+		<cfreturn data />
 	</cffunction>
 
 	<!---
@@ -799,12 +1121,20 @@ Notes:
 		<cfreturn variables.appManager />
 	</cffunction>
 
+	<cffunction name="setPropertyManager" access="private" returntype="void" output="false">
+		<cfargument name="propertyManager" type="MachII.framework.PropertyManager" required="true" />
+		<cfset variables.propertyManager = arguments.propertyManager />
+	</cffunction>
 	<cffunction name="getPropertyManager" access="private" returntype="MachII.framework.PropertyManager" output="false">
-		<cfreturn getAppManager().getPropertyManager() />
+		<cfreturn variables.propertyManager />
 	</cffunction>
 
+	<cffunction name="setUtils" access="private" returntype="void" output="false">
+		<cfargument name="utils" type="MachII.util.Utils" required="true" />
+		<cfset variables.utils = arguments.utils />
+	</cffunction>
 	<cffunction name="getUtils" access="private" returntype="MachII.util.Utils" output="false">
-		<cfreturn getAppManager().getUtils() />
+		<cfreturn variables.utils />
 	</cffunction>
 
 	<cffunction name="setEventParameter" access="private" returntype="void" output="false">
@@ -850,10 +1180,36 @@ Notes:
 
 	<cffunction name="setDefaultUrlBase" access="private" returntype="void" output="false">
 		<cfargument name="defaultUrlBase" type="string" required="true" />
-		<cfset variables.defaultUrlBase = arguments.defaultUrlBase />
+
+		<cfif arguments.defaultUrlBase NEQ "/">
+			<cfset variables.defaultUrlBase = arguments.defaultUrlBase />
+		<cfelse>
+			<cfset variables.defaultUrlBase = "" />
+		</cfif>
 	</cffunction>
 	<cffunction name="getDefaultUrlBase" access="private" returntype="string" output="false">
 		<cfreturn variables.defaultUrlBase />
+	</cffunction>
+	<!--- TODO: This needs to be completed --->
+	<cffunction name="getDefaultUrlBase_dynamic" access="private" returntype="string" output="false">
+		<cfreturn "http://" & cgi.SERVER_NAME & variables.defaultUrlBase />
+	</cffunction>
+
+	<cffunction name="setDefaultUrlSecureBase" access="private" returntype="void" output="false">
+		<cfargument name="defaultUrlSecureBase" type="string" required="true" />
+
+		<cfif arguments.defaultUrlSecureBase NEQ "/">
+			<cfset variables.defaultUrlSecureBase = arguments.defaultUrlSecureBase />
+		<cfelse>
+			<cfset variables.defaultUrlSecureBase = "" />
+		</cfif>
+	</cffunction>
+	<cffunction name="getDefaultUrlSecureBase" access="private" returntype="string" output="false">
+		<cfreturn variables.defaultUrlSecureBase />
+	</cffunction>
+	<!--- TODO: This needs to be completed --->
+	<cffunction name="getDefaultUrlSecureBase_dynamic" access="private" returntype="string" output="false">
+		<cfreturn "https://" & cgi.SERVER_NAME & variables.defaultUrlSecureBase />
 	</cffunction>
 
 	<cffunction name="setQueryStringDelimiter" access="private" returntype="void" output="false">
@@ -888,16 +1244,23 @@ Notes:
 		<cfreturn variables.moduleDelimiter />
 	</cffunction>
 
+	<cffunction name="setUrlZeroLengthStringRepresentation" access="private" returntype="void" output="false">
+		<cfargument name="urlZeroLengthStringRepresentation" type="string" required="true" />
+		<cfset variables.urlZeroLengthStringRepresentation = arguments.urlZeroLengthStringRepresentation />
+	</cffunction>
+	<cffunction name="getUrlZeroLengthStringRepresentation" access="private" returntype="string" output="false">
+		<cfreturn variables.urlZeroLengthStringRepresentation />
+	</cffunction>
+
 	<cffunction name="setModuleNames" access="private" returntype="void" output="false">
 		<cfargument name="moduleNames" type="array" required="true" />
-		
 		<cfset var names = ArrayNew(1) />
 		<cfset var i = 0 />
-		
+
 		<cfloop from="1" to="#ArrayLen(arguments.moduleNames)#" index="i">
 			<cfset names[i] = LCase(arguments.moduleNames[i]) />
 		</cfloop>
-		
+
 		<cfset variables.moduleNames = names />
 	</cffunction>
 	<cffunction name="getModuleNames" access="private" returntype="array" output="false">
@@ -920,14 +1283,55 @@ Notes:
 		<cfreturn variables.requestRedirectPersist />
 	</cffunction>
 
+	<cffunction name="setRewriteConfigFileOn" access="public" returntype="void" output="false">
+		<cfargument name="rewriteConfigFileOn" type="boolean" required="true" />
+		<cfset variables.rewriteConfigFileOn = arguments.rewriteConfigFileOn />
+	</cffunction>
+	<cffunction name="getRewriteConfigFileOn" access="public" returntype="boolean" output="false">
+		<cfreturn variables.rewriteConfigFileOn />
+	</cffunction>
+
+	<cffunction name="setRewriteConfigFile" access="public" returntype="void" output="false">
+		<cfargument name="rewriteConfigFile" type="string" required="true" />
+		<cfset variables.rewriteConfigFile = arguments.rewriteConfigFile />
+	</cffunction>
+	<cffunction name="getRewriteConfigFile" access="public" returntype="string" output="false">
+		<cfreturn variables.rewriteConfigFile />
+	</cffunction>
+
+	<cffunction name="setRewriteBaseFileName" access="public" returntype="void" output="false">
+		<cfargument name="rewriteBaseFileName" type="string" required="true" />
+		<cfset variables.rewriteBaseFileName = arguments.rewriteBaseFileName />
+	</cffunction>
+	<cffunction name="getRewriteBaseFileName" access="public" returntype="string" output="false">
+		<cfreturn variables.rewriteBaseFileName />
+	</cffunction>
+
 	<cffunction name="setLog" access="private" returntype="void" output="false"
 		hint="Uses the log factory to create a log.">
 		<cfargument name="logFactory" type="MachII.logging.LogFactory" required="true" />
-		<cfset variables.log = arguments.logFactory.getLog(getMetadata(this).name) />
+		<cfset variables.log = arguments.logFactory.getLog("MachII.framework.RequestManager") />
 	</cffunction>
 	<cffunction name="getLog" access="private" returntype="MachII.logging.Log" output="false"
 		hint="Gets the log.">
 		<cfreturn variables.log />
+	</cffunction>
+
+	<cffunction name="setTrackCurrentThreads" access="public" returntype="void" output="false">
+		<cfargument name="trackCurrentThreads" type="boolean" required="true" />
+
+		<cfif NOT arguments.trackCurrentThreads>
+			<cfset StructClear(variables.currentThreads) />
+		</cfif>
+
+		<cfset variables.trackCurrentThreads = arguments.trackCurrentThreads />
+	</cffunction>
+	<cffunction name="getTrackCurrentThreads" access="public" returntype="boolean" output="false">
+		<cfreturn variables.trackCurrentThreads />
+	</cffunction>
+
+	<cffunction name="getCurrentThreads" access="public" returntype="struct" output="false">
+		<cfreturn variables.currentThreads />
 	</cffunction>
 
 </cfcomponent>

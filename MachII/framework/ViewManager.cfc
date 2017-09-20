@@ -39,9 +39,8 @@
 	this library with the exception of independent module components that
 	extend certain Mach-II public interfaces (see README for list of public
 	interfaces).
-
 Author: Ben Edwards (ben@ben-edwards.com)
-$Id: ViewManager.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.0.0
 Updated version: 1.8.0
@@ -52,6 +51,12 @@ Notes:
 	displayname="ViewManager"
 	output="false"
 	hint="Manages registered views for the framework.">
+
+	<!---
+	CONSTANTS
+	--->
+	<cfset variables.VIEW_LOADER_SHORTCUTS = StructNew() />
+	<cfset variables.VIEW_LOADER_SHORTCUTS["PatternViewLoader"] = "MachII.framework.viewLoaders.PatternViewLoader" />
 
 	<!---
 	PROPERTIES
@@ -158,7 +163,7 @@ Notes:
 
 		<!--- Setup each View-Loader --->
 		<cfloop from="1" to="#ArrayLen(viewLoaderNodes)#" index="i">
-			<cfset viewLoaderType = viewLoaderNodes[i].xmlAttributes["type"] />
+			<cfset viewLoaderType = resolveViewLoaderTypeShortcut(viewLoaderNodes[i].xmlAttributes["type"]) />
 
 			<!--- View-Loaders do not support overrideAction --->
 
@@ -211,8 +216,6 @@ Notes:
 	<cffunction name="configure" access="public" returntype="void" output="false"
 		hint="Prepares the manager for use.">
 
-		<cfset var viewLoaders = variables.viewLoaders />
-		<cfset var views = StructNew() />
 		<cfset var viewData = "" />
 		<cfset var i = 0 />
 		<cfset var key = "" />
@@ -236,10 +239,9 @@ Notes:
 		</cfloop>
 
 		<!--- Configure and resolve view loaders --->
-		<cfloop from="1" to="#ArrayLen(viewLoaders)#" index="i">
-			<cfset viewLoaders[i].configure() />
-			<cfset views = viewLoaders[i].discoverViews() />
-			<cfset StructAppend(variables.viewData, views, false) />
+		<cfloop from="1" to="#ArrayLen(variables.viewLoaders)#" index="i">
+			<cfset variables.viewLoaders[i].configure() />
+			<cfset StructAppend(variables.viewData, variables.viewLoaders[i].discoverViews(), false) />
 		</cfloop>
 	</cffunction>
 
@@ -265,7 +267,7 @@ Notes:
 
 		<cfset var viewData = getView(arguments.viewName) />
 
-		<cfreturn viewData.appRoot & viewData.page />
+		<cfreturn ReplaceNoCase(viewData.appRoot & viewData.page, "//", "/") />
 	</cffunction>
 
 	<cffunction name="getUnresolvedViewPath" access="public" returntype="string" output="false"
@@ -285,7 +287,7 @@ Notes:
 
 		<cfif isViewDefined(arguments.viewName)>
 			<cfreturn variables.viewData[arguments.viewName] />
-		<cfelseif IsObject(getParent()) AND getParent().isViewDefined(arguments.viewName)>
+		<cfelseif IsObject(getParent())>
 			<cfreturn getParent().getView(arguments.viewName) />
 		<cfelse>
 			<cfthrow type="MachII.framework.ViewNotDefined"
@@ -310,6 +312,27 @@ Notes:
 		<cfreturn variables.viewLoaders />
 	</cffunction>
 
+	<cffunction name="reloadViewLoader" access="public" returntype="void" output="false"
+		hint="Reloads a view-loader.">
+		<cfargument name="viewLoaderName" type="string" required="true"
+			hint="Name of view-loader to reload." />
+		<cfset variables.viewLoaders[arguments.viewLoaderName].discoverViews() />
+	</cffunction>
+
+	<!---
+	PROTECTED FUNCTIONS
+	--->
+	<cffunction name="resolveViewLoaderTypeShortcut" access="public" returntype="string" output="false"
+		hint="Resolves a view loader type shorcut and returns the passed value if no match is found.">
+		<cfargument name="viewLoaderType" type="string" required="true"
+			hint="Dot path to the view loader." />
+
+		<cfif StructKeyExists(variables.VIEW_LOADER_SHORTCUTS, arguments.viewLoaderType)>
+			<cfreturn variables.VIEW_LOADER_SHORTCUTS[arguments.viewLoaderType] />
+		<cfelse>
+			<cfreturn arguments.viewLoaderType />
+		</cfif>
+	</cffunction>
 
 	<!---
 	ACCESSORS

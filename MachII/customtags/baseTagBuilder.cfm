@@ -42,10 +42,10 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: baseTagBuilder.cfm 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.8.0
-Updated version: 1.8.1
+Updated version: 1.8.0
 
 Notes:
 Helper functions for the Mach-II form tag library.
@@ -206,7 +206,7 @@ PUBLIC FUNCTIONS
 </cffunction>
 
 <cffunction name="setAttribute" access="public" returntype="void" output="false"
-	hint="Adds an attribute by name if defined.">
+	hint="Adds an attribute by name if defined to the tag collection.">
 	<cfargument name="attributeName" type="string" required="true" />
 	<cfargument name="value" type="string" required="false" />
 
@@ -218,7 +218,7 @@ PUBLIC FUNCTIONS
 </cffunction>
 
 <cffunction name="setAttributes" access="public" returntype="void" output="false"
-	hint="Adds attributes.">
+	hint="Adds attributes to the tag collection.">
 	<cfargument name="attributes" type="struct" required="true" />
 	<cfset StructAppend(variables.attributeCollection, arguments.attributes, true) />
 </cffunction>
@@ -466,10 +466,12 @@ PUBLIC FUNCTIONS - UTIL
 	<cfargument name="attributeNameForModule" type="string" default="module" />
 	<cfargument name="attributeNameForRoute" type="string" default="route" />
 	<cfargument name="attributeNameForUrlParameters" type="string" default="p" />
+	<cfargument name="attributeNameForUrlParametersToRemove" type="string" default="urlParametersToRemove" />
 
 	<!--- Build url parameters --->
 	<cfset var urlParameters = normalizeStructByNamespace("p") />
 	<cfset var queryStringParameters = "" />
+	<cfset var urlParametersToRemove = "" />
 	<cfset var builtUrl = "" />
 
 	<!--- Convert and merge the "string" version of the URL parameters into a struct --->
@@ -504,13 +506,19 @@ PUBLIC FUNCTIONS - UTIL
 		</cfif>
 
 		<cfset builtUrl = request.eventContext.getAppManager().getRequestManager().buildRouteUrl(attributes[arguments.attributeNameForRoute], urlParameters, queryStringParameters) />
+	<cfelseif StructKeyExists(attributes, "endpoint")>
+		<cfset builtUrl = request.eventContext.getAppManager().getEndpointManager().buildEndpointUrl(attributes["endpoint"], urlParameters) />
 	<cfelse>
 		<cfif getTagLib() EQ "view" AND getTagType() EQ "a">
 			<cfif StructKeyExists(attributes, "useCurrentUrl")>
+				<cfif StructKeyExists(attributes, arguments.attributeNameForUrlParametersToRemove)>
+					<cfset urlParametersToRemove = attributes[arguments.attributeNameForUrlParametersToRemove] />
+				</cfif>
+
 				<cfif StructKeyExists(attributes, arguments.attributeNameForModule)>
-					<cfset builtUrl = request.eventContext.getAppManager().getRequestManager().buildCurrentUrl(attributes[arguments.attributeNameForModule], urlParameters) />
+					<cfset builtUrl = request.eventContext.getAppManager().getRequestManager().buildCurrentUrl(attributes[arguments.attributeNameForModule], urlParameters, urlParametersToRemove) />
 				<cfelse>
-					<cfset builtUrl = request.eventContext.getAppManager().getRequestManager().buildCurrentUrl(getAppManager().getModuleName(), urlParameters) />
+					<cfset builtUrl = request.eventContext.getAppManager().getRequestManager().buildCurrentUrl(getAppManager().getModuleName(), urlParameters, urlParametersToRemove) />
 				</cfif>
 			<cfelse>
 				<cfthrow type="MachII.customtags.view.a.noEventRouteOrUseCurrentUrlAttribute"
@@ -585,9 +593,10 @@ ACCESSORS
 		hint="Escapes special HTML characters." />
 
 	<cfif arguments.escapeHtml>
-		<cfset arguments.content = variables.utils.escapeHtml(arguments.content) />
+		<cfset variables.content = variables.utils.escapeHtml(arguments.content) />
+	<cfelse>
+		<cfset variables.content = arguments.content />
 	</cfif>
-	<cfset variables.content = arguments.content />
 </cffunction>
 <cffunction name="getContent" access="public" returntype="string" output="false">
 	<cfreturn variables.content />

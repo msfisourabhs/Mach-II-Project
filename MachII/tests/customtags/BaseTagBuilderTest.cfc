@@ -41,7 +41,7 @@
 	interfaces).
 
 Author: Peter J. Farrell(peter@mach-ii.com)
-$Id: BaseTagBuilderTest.cfc 2203 2010-04-27 07:12:57Z peterfarrell $
+$Id$
 
 Created version: 1.8.1
 Updated version: 1.9.0
@@ -78,12 +78,6 @@ Notes:
 		<!--- Setup the PropertyManager with the required collaboration data --->
 		<cfset propertyManager = CreateObject("component", "MachII.framework.PropertyManager").init(appManager) />
 		<cfset variables.appManager.setPropertyManager(propertyManager) />
-
-		<!--- Insert properties if needed here --->
-		<cfset propertyManager.setProperty("urlExcludeEventParameter", false) />
-		<cfset propertyManager.setProperty("urlDelimiters", "?|&|=") />
-		<cfset propertyManager.setProperty("redirectPersistScope", "application") />
-		<cfset propertyManager.setProperty("maxEvents", 10) />
 
 		<!--- Setup the RequestManager --->
 		<cfset requestManager =  CreateObject("component", "MachII.framework.RequestManager").init(appManager) />

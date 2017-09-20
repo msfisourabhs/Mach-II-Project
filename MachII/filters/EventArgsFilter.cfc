@@ -42,7 +42,7 @@ License:
 	interfaces).
 
 Author: Ben Edwards (ben@ben-edwards.com)
-$Id: EventArgsFilter.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.0.10
 Updated version: 1.1.0

@@ -154,10 +154,14 @@
 			<filter name="isLoggedInFilter">
 			</filter>
 			<notify listener="userProfileListener" method="fetchUserDetails"/>
+			</event-handler>
+		<event-handler event="profile" access="private">
+			<view-page name="register" contentArg="registerForm"/>
+			<view-page name="login" contentArg="loginForm"/>
 			<view-page name="logout" contentArg="logoutContent"/>
 			<view-page name="header" contentArg="headerContent"/>
 			<view-page name="updatePicture" contentArg="updatePicture"/>
-			<view-page name="updateProfile" contentArg="updateProfile"/>				
+			<view-page name="updateProfile" contentArg="updateProfile"/>
 			<view-page name="profile" contentArg="publicContent"/>
 			<view-page name="footer" contentArg="footerContent"/>
 			<view-page name="main" />
@@ -180,15 +184,8 @@
 		</event-handler>
 		<event-handler event="showPublicProfile" acess="public">
 			<notify listener="showPublicProfileListener" method="fetchUserDetails"/>
-			<view-page name="register" contentArg="registerForm"/>
-			<view-page name="login" contentArg="loginForm"/>
-			<view-page name="logout" contentArg="logoutContent"/>
-			<view-page name="header" contentArg="headerContent"/>
-			<view-page name="profile" contentArg="publicContent"/>
-			<view-page name="footer" contentArg="footerContent"/>
-			<view-page name="main" />
 		</event-handler>
-		<event-handler event="error" access="public">
+		<event-handler event="error" access="private">
 			<view-page name="header" contentArg="headerContent"/>
 			<view-page name="error"/>
 			<view-page name="main"/>	

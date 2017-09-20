@@ -23,11 +23,9 @@
 	<cffunction name="configure" access="public" returntype="void" output="false"
 		hint="Configures the listener.">
 		<!--- Put custom configuration for this listener here. --->
-		<cfif StructKeyExists(SESSION,"User")>
-			
-			<cfset VARIABLES.painterDAO = createObject("component","models.painter.painterDAO").init(SESSION.User)>
-			<cfset VARIABLES.painterService = createObject("component","models.painter.painterService").init(VARIABLES.painterDAO)>
-		</cfif>
+		<cfset VARIABLES.painter = createObject("component","models.painter.painter").init()>	
+		<cfset VARIABLES.painterDAO = createObject("component","models.painter.painterDAO").init(VARIABLES.painter)>
+		<cfset VARIABLES.painterService = createObject("component","models.painter.painterService").init(VARIABLES.painterDAO)>
 	</cffunction>
 	
 	<!---
@@ -38,6 +36,7 @@
 		<cfargument name="event" type="MachII.framework.Event" required="true" />
 			<!---set isActive flag to inactive--->
 			<cfif StructKeyExists(SESSION,"User")>
+				<cfset VARIABLES.painterDAO.init(SESSION.User)>
 				<cfset LOCAL.validation = createObject("component","models.painter.authenticationService").init(SESSION.User,VARIABLES.painterService)>
 				<cfset VARIABLES.errorFlag = LOCAL.validation.doLogout()>
 				<cfif NOT VARIABLES.errorFlag >	

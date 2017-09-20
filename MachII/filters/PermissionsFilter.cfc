@@ -41,7 +41,7 @@
 	interfaces).
 
 Author: Ben Edwards (ben@ben-edwards.com)
-$Id: PermissionsFilter.cfc 2208 2010-04-28 22:15:46Z peterfarrell $
+$Id$
 
 Created version: 1.0.10
 Updated version: 1.1.0

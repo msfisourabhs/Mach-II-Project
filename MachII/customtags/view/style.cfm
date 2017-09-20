@@ -42,16 +42,17 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: style.cfm 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.8.0
-Updated version: 1.8.1
+Updated version: 1.9.0
 
 Notes:
 - OPTIONAL ATTRIBUTES
-	outputType	= [string] outputs the code to "head" or "inline"
-	media = [string] specifies styles for different media types
-	forIEVersion = [string] wraps an IE conditional comment around the incoming code
+	href			= [string|list|array] A single string, comma-delimited list or array of web accessible hrefs to .css files.
+	outputType		= [string] Indicates the output type for the generated HTML code ('head', 'body', 'inline').
+	media 			= [string] specifies styles for different media types
+	forIEVersion 	= [string] wraps an IE conditional comment around the incoming code
 --->
 <cfif thisTag.ExecutionMode IS "start">
 
@@ -81,32 +82,32 @@ Notes:
 
 	<!--- Ensure attributes if no body content --->
 	<cfif NOT Len(variables.bodyContent)>
-		<cfset ensureOneByNameList("href,event,route") />
+		<cfset ensureOneByNameList("href,event,route,endpoint") />
 	</cfif>
 
 	<!--- If the href is not present, then make an URL using event/module/route --->
 	<cfif NOT StructKeyExists(attributes, "href")
-		AND (StructKeyExists(attributes, "event") OR StructKeyExists(attributes, "route"))>
+		AND (StructKeyExists(attributes, "event") OR StructKeyExists(attributes, "route") OR StructKeyExists(attributes, "endpoint"))>
 		<cfset attributes.href = "external:" & makeUrl() />
 	</cfif>
 
+	<!--- Cleanup additional tag attributes so additional attributes is not polluted with duplicate attributes --->
+	<cfset variables.additionalAttributes = StructNew() />
+	<cfset StructAppend(variables.additionalAttributes, attributes) />
+	<cfset StructDelete(variables.additionalAttributes, "href", "false") />
+	<cfset StructDelete(variables.additionalAttributes, "forIEVersion", "false") />
+	<cfset StructDelete(variables.additionalAttributes, "output", "false") />
+	<cfset StructDelete(variables.additionalAttributes, "outputType", "false") />
+	<cfset StructDelete(variables.additionalAttributes, "event", "false") />
+	<cfset StructDelete(variables.additionalAttributes, "module", "false") />
+	<cfset StructDelete(variables.additionalAttributes, "route", "false") />
+	<cfset StructDelete(variables.additionalAttributes, "endpoint", "false") />
+	<cfset StructDelete(variables.additionalAttributes, "p", "false") />
+	<cfset StructDelete(variables.additionalAttributes, "q", "false") />
+
 	<!--- For external files --->
 	<cfif StructKeyExists(attributes, "href")>
-
-		<!--- Cleanup additional tag attributes so additional attributes is not polluted with duplicate attributes --->
-		<cfset variables.additionalAttributes = StructNew() />
-		<cfset StructAppend(variables.additionalAttributes, attributes) />
-		<cfset StructDelete(variables.additionalAttributes, "href", "false") />
-		<cfset StructDelete(variables.additionalAttributes, "forIEVersion", "false") />
-		<cfset StructDelete(variables.additionalAttributes, "output", "false") />
-		<cfset StructDelete(variables.additionalAttributes, "outputType", "false") />
-		<cfset StructDelete(variables.additionalAttributes, "event", "false") />
-		<cfset StructDelete(variables.additionalAttributes, "module", "false") />
-		<cfset StructDelete(variables.additionalAttributes, "route", "false") />
-		<cfset StructDelete(variables.additionalAttributes, "p", "false") />
-		<cfset StructDelete(variables.additionalAttributes, "q", "false") />
-
-		<cfif attributes.outputType EQ "head">
+		<cfif attributes.outputType NEQ "inline">
 			<cfset locateHtmlHelper().addStylesheet(attributes.href, variables.additionalAttributes, attributes.outputType, attributes.forIEVersion) />
 		<cfelse>
 			<cfset thisTag.GeneratedContent = locateHtmlHelper().addStylesheet(attributes.href, variables.additionalAttributes, attributes.outputType, attributes.forIEVersion) />
@@ -115,20 +116,11 @@ Notes:
 
 	<!--- For body content --->
 	<cfif Len(variables.bodyContent)>
-		<cfset setContent(Chr(13) & '/* <![CDATA[ */' & Chr(13) & variables.bodyContent & Chr(13) & '/* ]]> */' & Chr(13)) />
-
-		<cfset variables.styles = doStartTag() & doEndTag() />
-
-		<!--- Wrap in an IE conditional if defined --->
-		<cfif Len(attributes.forIEVersion)>
-			<cfset variables.styles = wrapIEConditionalComment(attributes.forIEVersion, variables.styles) />
-		</cfif>
-
-		<cfif attributes.outputType EQ "head">
-			<cfset request.eventContext.addHTMLHeadElement(variables.styles) />
-		<cfelse>
-			<cfset thisTag.GeneratedContent = thisTag.GeneratedContent & variables.styles />
-		</cfif>
+    <cfif attributes.outputType NEQ "inline">
+      <cfset locateHtmlHelper().addStylesheetBody(variables.bodyContent, variables.additionalAttributes, attributes.outputType, attributes.forIEVersion) />
+    <cfelse>
+      <cfset thisTag.GeneratedContent = thisTag.GeneratedContent & locateHtmlHelper().addStylesheetBody(variables.bodyContent, variables.additionalAttributes, attributes.outputType, attributes.forIEVersion) />
+    </cfif>
 	</cfif>
 </cfif>
 </cfsilent><cfsetting enablecfoutputonly="false" />

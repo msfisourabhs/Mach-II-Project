@@ -41,7 +41,7 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: AppLoader.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.0.0
 Updated version: 1.6.0
@@ -87,7 +87,7 @@ Notes:
 			hint="Optional argument for the name of a module. Defaults to empty string." />
 
 		<cfset var appFactory = CreateObject("component", "MachII.framework.AppFactory").init() />
-
+		
 		<cfset setAppFactory(appFactory) />
 
 		<cfset setConfigPath(arguments.configPath) />
@@ -158,16 +158,45 @@ Notes:
 			hint="Optional argument for a parent app manager. If there isn't one default to empty string." />
 
 		<cfset var oldAppManager = variables.appManager />
-
-		<cfset updateLastReloadDatetime() />
-		<cfset setAppManager(getAppFactory().createAppManager(getConfigPath(), getDtdPath(),
-				getAppKey(), getValidateXml(), arguments.parentAppManager, getOverrideXml(), getModuleName())) />
-		<cfset getAppManager().setAppLoader(this) />
-		<cfset setLastReloadHash(getConfigFileReloadHash()) />
-		<cfset setLog(getAppManager().getLogFactory()) />
-
+		<cfset var parameters = StructNew() />
+		<cfset var threadingAdapter = "" />
+		
+		<!--- Start tracking threads so we can wait for them to finish --->
 		<cfif IsObject(oldAppManager)>
-			<cfset oldAppManager.deconfigure() />
+			<cfset oldAppManager.getRequestManager().setTrackCurrentThreads(true) />
+		</cfif>
+
+		<cftry>
+			<cfset updateLastReloadDatetime() />
+			<cfset setAppManager(getAppFactory().createAppManager(getConfigPath(), getDtdPath(),
+					getAppKey(), getValidateXml(), arguments.parentAppManager, getOverrideXml(), getModuleName())) />
+			<cfset getAppManager().setAppLoader(this) />
+			<cfset getAppManager().getRequestManager().setTrackCurrentThreads(true) />
+			<cfset setLastReloadHash(getConfigFileReloadHash()) />
+			<cfset setLog(getAppManager().getLogFactory()) />
+			
+			<!--- If anything went wrong, the old AppManager will still respond so stop tracking threads --->
+			<cfcatch type="any">
+				<cfif IsObject(oldAppManager)>
+					<cfset oldAppManager.getRequestManager().setTrackCurrentThreads(false) />
+				</cfif>
+				<cfrethrow />
+			</cfcatch>
+		</cftry>
+
+		<!--- Deconfigure by using a thread --->
+		<cfif IsObject(oldAppManager)>
+			<cfset threadingAdapter = oldAppManager.getUtils().createThreadingAdapter() />
+			
+			<!--- Check if we can thread out the deconfigure() otherwise run in serial (may cause concurrency issues on production) --->
+			<cfif threadingAdapter.allowThreading()>
+				<cfset parameters.newAppManager = variables.appManager />
+				<cfset parameters.oldAppManager = oldAppManager />
+
+				<cfset threadingAdapter.run(this, "waitForActiveThreadsToFinishAndDeconfigure", parameters) />
+			<cfelse>
+				<cfset oldAppManager.deconfigure() />
+			</cfif>
 		</cfif>
 	</cffunction>
 
@@ -190,22 +219,60 @@ Notes:
 			</cfloop>
 		</cfif>
 	</cffunction>
+	
+	<cffunction name="waitForActiveThreadsToFinishAndDeconfigure" access="public" returntype="void" output="false"
+		hint="Waits for all active threads to finish and deconfigure.">
+		<cfargument name="newAppManager" type="MachII.framework.AppManager" required="true" />
+		<cfargument name="oldAppManager" type="MachII.framework.AppManager" required="true" />
+
+		<cfset var activeThreadCount = 0 />
+		<cfset var i = 0 />
+		
+		<!--- <cflog text="Started waiting for threads." file="threads" /> --->
+
+		<!--- Wait until all threads have finished or 60 seconds whichever is earlier--->
+		<cfloop from="1" to="120" index="i">
+			<cfset activeThreadCount = arguments.oldAppManager.getRequestManager().activeCurrentThreadCount() />
+			
+			<!--- <cflog text="Waiting for threads. Iteration: #i# Active Thread Count: #activeThreadCount#" file="threads" /> --->
+			
+			<cfif activeThreadCount>
+				<cfset sleep(500) />
+			<cfelse>
+				<cfbreak />
+			</cfif>
+		</cfloop>
+		
+		<!--- <cflog text="Running deconfigure" file="threads" /> --->
+		
+		<cfset arguments.newAppManager.getRequestManager().setTrackCurrentThreads(false) />
+		
+		<cfset arguments.oldAppManager.deconfigure() />
+	</cffunction>
 
 	<!---
 	PROTECTED FUNCTIONS
 	--->
 	<cffunction name="getConfigFileReloadHash" access="private" returntype="string" output="false"
-		hint="Get the current reload hash of the master config file and any include files which is based on dateLastModified and size.">
+		hint="Get the current reload hash of the master config file and any include files which is based on lastModified and size.">
 
 		<cfset var configFilePaths = getAppFactory().getConfigFilePaths() />
-		<cfset var directoryResults = "" />
+		<cfset var fileInfo = "" />
 		<cfset var hashableString = "" />
 		<cfset var i = "" />
+		
+		<!--- Test for getFileInfo() --->
+		<cftry>
+			<cfset getFileInfo("ExpandPath(./AppLoader.cfc)") />
+			<cfcatch type="any">
+				<cfset variables.getFileInfo = getAppManager().getUtils().getFileInfo_cfdirectory />
+				<cfset this.getFileInfo = getAppManager().getUtils().getFileInfo_cfdirectory />
+			</cfcatch>
+		</cftry>
 
 		<cfloop from="1" to="#ArrayLen(configFilePaths)#" index="i">
-			<cfdirectory action="LIST" directory="#GetDirectoryFromPath(configFilePaths[i])#"
-				name="directoryResults" filter="#GetFileFromPath(configFilePaths[i])#" />
-			<cfset hashableString = hashableString & directoryResults.dateLastModified & directoryResults.size />
+			<cfset fileInfo = getFileInfo(configFilePaths[i]) />
+			<cfset hashableString = hashableString & fileInfo.lastModified & fileInfo.size />
 		</cfloop>
 
 		<cfreturn Hash(hashableString) />
@@ -302,7 +369,7 @@ Notes:
 	<cffunction name="setLog" access="private" returntype="void" output="false"
 		hint="Uses the log factory to create a log.">
 		<cfargument name="logFactory" type="MachII.logging.LogFactory" required="true" />
-		<cfset variables.log = arguments.logFactory.getLog(getMetadata(this).name) />
+		<cfset variables.log = arguments.logFactory.getLog("MachII.framework.AppLoader") />
 	</cffunction>
 	<cffunction name="getLog" access="public" returntype="MachII.logging.Log" output="false"
 		hint="Gets the log.">

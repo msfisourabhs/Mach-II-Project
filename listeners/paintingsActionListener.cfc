@@ -22,10 +22,12 @@
 	<cffunction name="configure" access="public" returntype="void" output="false"
 		hint="Configures the listener.">
 		<!--- Put custom configuration for this listener here. --->
-		<cfif StructKeyExists(SESSION,"User")>
-			<cfset VARIABLES.paintingDAO = createObject("component","models.picture.pictureDAO").init(SESSION.User)>
-			<cfset VARIABLES.pictureService = createObject("component","models.picture.pictureService").init(VARIABLES.paintingDAO)>	
-		</cfif>
+		<!---<cfif StructKeyExists(SESSION,"User")>
+		--->	
+		<cfset VARIABLES.painter = createObject("component","models.painter.painter").init()>
+		<cfset VARIABLES.paintingDAO = createObject("component","models.picture.pictureDAO").init(VARIABLES.painter)>
+		<cfset VARIABLES.pictureService = createObject("component","models.picture.pictureService").init(VARIABLES.paintingDAO)>	
+		
 	</cffunction>
 	
 	<!---
@@ -36,13 +38,13 @@
 		<cfargument name="event" type="MachII.framework.Event" required="true" />
 		<!---Check if incoming request is from a logged in user--->
 		<cfset LOCAL.painting = createObject("component","models.picture.picture").init()>	
-		<cfif StructKeyExists(SESSION,"User")>
-			<!---update the isPublic flag to public--->
+		<!---<cfif StructKeyExists(SESSION,"User")>
+		--->	<!---update the isPublic flag to public--->
 			<cfset LOCAL.painting.setIsPublic(ARGUMENTS.event.getArg("action"))>
 			<cfset LOCAL.painting.setPid(ARGUMENTS.event.getArg("picId"))>
 			<cfset VARIABLES.pictureService.paintingsAccess(LOCAL.painting)>
 			<cfreturn true>
-		</cfif>
+		<!---</cfif>--->
 		<cfreturn false>
 			
 	</cffunction>

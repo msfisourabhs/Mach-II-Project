@@ -41,7 +41,7 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: MessageManager.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.6.0
 Updated version: 1.8.0
@@ -62,6 +62,7 @@ Notes:
 	<cfset variables.appManager = "" />
 	<cfset variables.parentMessageManager = "" />
 	<cfset variables.messageHandlerlog = "" />
+	<cfset variables.messageHandlerTarget = "" />
 
 	<!---
 	INITIALIZATION / CONFIGURATION
@@ -81,6 +82,7 @@ Notes:
 
 		<!--- Quick reference for performance reasons --->
 		<cfset variables.messageHandlerlog = getAppManager().getLogFactory().getLog("MachII.framework.MessageHandler") />
+		<cfset variables.messageHandlerTarget = CreateObject("component", "MachII.framework.MessageHandler") />
 
 		<cfset super.init() />
 
@@ -161,7 +163,7 @@ Notes:
 				</cfif>
 
 				<!--- Setup the Message Handler --->
-				<cfset messageHandler = CreateObject("component", "MachII.framework.MessageHandler").init(messageName, messageMultithreaded, messageWaitForThreads, messageTimeout, getThreadingAdapter()) />
+				<cfset messageHandler = Duplicate(variables.messageHandlerTarget).init(messageName, messageMultithreaded, messageWaitForThreads, messageTimeout, getThreadingAdapter()) />
 				<cfset messageHandler.setLog(variables.messageHandlerlog) />
 				<cfset messageHandler.setUtils(getAppManager().getUtils()) />
 
@@ -200,12 +202,11 @@ Notes:
 
 		<cfif isMessageHandlerDefined(arguments.messageName)>
 			<cfreturn variables.messageHandlers[arguments.messageName] />
-		<cfelseif IsObject(getParent()) AND getParent().isMessageHandlerDefined(arguments.messageName)>
+		<cfelseif IsObject(getParent())>
 			<cfreturn getParent().getMessageHandler(arguments.messageName) />
 		<cfelse>
 			<cfthrow type="MachII.framework.MessageHandlerNotDefined"
-				message="A message-subscriber with name '#arguments.messageName#' is not defined."
-				detail="Available Messages: '#ArrayToList(getMessageHandlerNames())#'" />
+				message="A message-subscriber with name '#arguments.messageName#' is not defined." />
 		</cfif>
 	</cffunction>
 

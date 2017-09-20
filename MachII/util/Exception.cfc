@@ -41,7 +41,7 @@
 	interfaces).
 
 Author: Ben Edwards (ben@ben-edwards.com)
-$Id: Exception.cfc 2226 2010-06-04 23:40:32Z peterjfarrell $
+$Id$
 
 Created version: 1.0.0
 Updated version: 1.5.0

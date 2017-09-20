@@ -21,6 +21,7 @@
     conditions of the GNU General Public License cover the whole
     combination.
 
+    As a special exception, the copyright holders of this library give you
 	As a special exception, the copyright holders of this library give you
 	permission to link this library with independent modules to produce an
 	executable, regardless of the license terms of these independent
@@ -41,7 +42,7 @@
 	interfaces).
 
 Author: Kurt Wiersma (kurt@mach-ii.com)
-$Id: User.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.8.0
 Updated version: 1.8.0

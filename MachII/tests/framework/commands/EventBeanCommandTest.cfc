@@ -41,7 +41,7 @@
 	interfaces).
 
 Author: Kurt Wiersma (kurt@mach-ii.com)
-$Id: EventBeanCommandTest.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.8.0
 Updated version: 1.8.0
@@ -69,6 +69,7 @@ Notes:
 		<cfset var appManager = "" />
 		<cfset var propertyManager = "" />
 		<cfset var requestHandler= "" />
+		<cfset var requestManager = "" />
 		<cfset var eventContext = "" />
 		
 		<!--- Setup the AppManager with the required collaborators --->
@@ -79,6 +80,10 @@ Notes:
 		<cfset propertyManager = CreateObject("component", "MachII.framework.PropertyManager").init(appManager) />
 		<cfset appManager.setPropertyManager(propertyManager) />
 		<cfset setAppManager(appManager) />
+		
+		<!--- Setup the RequestManager --->
+		<cfset requestManager =  CreateObject("component", "MachII.framework.RequestManager").init(appManager) />
+		<cfset appManager.setRequestManager(requestManager) />
 		
 		<!--- Setup a clean EventContext --->
 		<cfset requestHandler = CreateObject("component", "MachII.framework.RequestHandler").init(

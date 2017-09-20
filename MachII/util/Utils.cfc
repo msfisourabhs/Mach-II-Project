@@ -41,10 +41,10 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: Utils.cfc 2226 2010-06-04 23:40:32Z peterjfarrell $
+$Id$
 
 Created version: 1.5.0
-Updated version: 1.8.0
+Updated version: 1.9.0
 
 Notes:
 --->
@@ -57,54 +57,46 @@ Notes:
 	PROPERTIES
 	--->
 	<cfset variables.system = CreateObject("java", "java.lang.System") />
+	<cfset variables.threadingAdapter = "" />
 	<cfset variables.statusCodeShortcutMap = StructNew() />
+	<cfset variables.mimeTypeMap = StructNew() />
 
 	<!---
 	INITIALIZATION / CONFIGURATION
 	--->
 	<cffunction name="init" access="public" returntype="Utils" output="false"
 		hint="Initialization function called by the framework.">
+		<cfargument name="loadResources" type="boolean" required="false" default="true"
+			hint="Directive to load in resource files. Defaults to true." />
 
-		<cfset buildStatusCodeShortcutMap() />
+		<cfset var temp = "" />
+
+		<cfif arguments.loadResources>
+			<cfset variables.statusCodeShortcutMap = loadResourceData("/MachII/util/resources/data/httpStatuscodes.properties") />
+			<cfset variables.mimeTypeMap = loadResourceData("/MachII/util/resources/data/mimeTypes.properties") />
+		</cfif>
+
+		<!--- Test if native ListItemTrim() is available (OpenBD 1.4 and Railo 3.2) --->
+		<cftry>
+			<cfset ListItemTrim("temp, temp") />
+
+			<cfset variables.listTrim = variables.trimList_native />
+			<cfset this.listTrim = this.trimList_native />
+
+			<cfcatch type="any">
+				<!--- Any exception means the BIF is unavailable so ignore this exception --->
+			</cfcatch>
+		</cftry>
+
+		<!--- Test if native HtmlEditFormat() does not escape already escaped entities --->
+		<cfset temp = escapeHtml_native("&lt;&gt;&quot;&amp;") />
+
+		<cfif temp EQ "&lt;&gt;&quot;&amp;">
+			<cfset variables.escapeHtml = variables.escapeHtml_native />
+			<cfset this.escapeHtml = this.escapeHtml_native />
+		</cfif>
 
 		<cfreturn this />
-	</cffunction>
-
-	<cffunction name="buildStatusCodeShortcutMap" access="private" returntype="void" output="false"
-		hint="Builds a shortcut map for HTTP header status code.">
-
-		<cfset var statusCodeShortcutMap = StructNew() />
-
-		<cfset statusCodeShortcutMap["100"] = "Continue" />
-		<cfset statusCodeShortcutMap["101"] = "Switching Protocols" />
-		<cfset statusCodeShortcutMap["200"] = "OK" />
-		<cfset statusCodeShortcutMap["201"] = "Created" />
-		<cfset statusCodeShortcutMap["202"] = "Accepted" />
-		<cfset statusCodeShortcutMap["203"] = "Non-Authoritative Information" />
-		<cfset statusCodeShortcutMap["204"] = "No Content" />
-		<cfset statusCodeShortcutMap["205"] = "Reset Content" />
-		<cfset statusCodeShortcutMap["206"] = "Partial Content" />
-		<cfset statusCodeShortcutMap["300"] = "Multiple Choices" />
-		<cfset statusCodeShortcutMap["301"] = "Moved Permanently" />
-		<cfset statusCodeShortcutMap["302"] = "Found" />
-		<cfset statusCodeShortcutMap["303"] = "See Other" />
-		<cfset statusCodeShortcutMap["304"] = "Not Modified" />
-		<cfset statusCodeShortcutMap["307"] = "Temporary Redirect" />
-		<cfset statusCodeShortcutMap["400"] = "Bad Request" />
-		<cfset statusCodeShortcutMap["401"] = "Unauthorized" />
-		<cfset statusCodeShortcutMap["403"] = "Forbidden" />
-		<cfset statusCodeShortcutMap["404"] = "Not Found" />
-		<cfset statusCodeShortcutMap["405"] = "Method Not Allowed" />
-		<cfset statusCodeShortcutMap["406"] = "Not Acceptable" />
-		<cfset statusCodeShortcutMap["408"] = "Request Timeout" />
-		<cfset statusCodeShortcutMap["410"] = "Gone" />
-		<cfset statusCodeShortcutMap["500"] = "Internal Server Error" />
-		<cfset statusCodeShortcutMap["501"] = "Not Implemented" />
-		<cfset statusCodeShortcutMap["502"] = "Bad Gateway" />
-		<cfset statusCodeShortcutMap["503"] = "Service Unavailable" />
-		<cfset statusCodeShortcutMap["504"] = "Gateway Timeout" />
-
-		<cfset variables.statusCodeShortcutMap = statusCodeShortcutMap />
 	</cffunction>
 
 	<!---
@@ -152,11 +144,17 @@ Notes:
 		<cfset var resolvedPath = "" />
 		<cfset var hits = ArrayNew(1) />
 		<cfset var offset = 0 />
+		<cfset var isUNC = false />
 		<cfset var i = 0 />
 
+		<!--- Check if UNC path --->
+		<cfif arguments.baseDirectory.startsWith("\\")>
+			<cfset isUNC = true />
+		</cfif>
+
 		<!--- Unified slashes due to operating system differences and convert ./ to / --->
-		<cfset combinedWorkingPath = Replace(combinedWorkingPath, "\", "/", "all") />
-		<cfset combinedWorkingPath = Replace(combinedWorkingPath, "/./", "/", "all") />
+		<cfset combinedWorkingPath = ReplaceNoCase(combinedWorkingPath, "\", "/", "all") />
+		<cfset combinedWorkingPath = ReplaceNoCase(combinedWorkingPath, "/./", "/", "all") />
 		<cfset pathCollection = ListToArray(combinedWorkingPath, "/") />
 
 		<!--- Check how many directories we need to move up using the ../ syntax --->
@@ -174,63 +172,182 @@ Notes:
 		<!--- Rebuild the path from the collection --->
 		<cfset resolvedPath = ArrayToList(pathCollection, "/") />
 
+		<!--- Reinsert UNC if that type of path --->
+		<cfif isUNC>
+			<cfset resolvedPath = "\\" & resolvedPath />
 		<!--- Reinsert the leading slash if *nix system --->
-		<cfif Left(arguments.baseDirectory, 1) IS "/">
+		<cfelseif arguments.baseDirectory.startsWith("/")>
 			<cfset resolvedPath = "/" & resolvedPath />
 		</cfif>
 
 		<!--- Reinsert the trailing slash if the relativePath was just a directory --->
-		<cfif Right(arguments.relativePath, 1) IS "/">
+		<cfif arguments.relativePath.endsWith("/")>
 			<cfset resolvedPath = resolvedPath & "/" />
 		</cfif>
 
 		<cfreturn resolvedPath />
 	</cffunction>
 
+	<cffunction name="loadResourceData" access="public" returntype="struct" output="false"
+		hint="Loads resource data by path and returns a struct.">
+		<cfargument name="resourcePath" type="string" required="true"
+			hint="A path to the resource." />
+		<cfargument name="expandValueKeys" type="string" required="false"
+			hint="A list of keys names to expand value to." />
+		<cfargument name="expandValueKeyDelimiters" type="string" required="false" default="|"
+			hint="The delimiters to use when expanding value keys." />
+
+		<cfset var resourceMap = StructNew() />
+		<cfset var line = "" />
+		<cfset var key = "" />
+		<cfset var valueKeys = "" />
+		<cfset var temp = "" />
+		<cfset var values = "" />
+		<cfset var i = 0 />
+
+		<!--- Parse the file --->
+		<cfloop file="#ExpandPath(arguments.resourcePath)#" index="line">
+			<cfif NOT line.startsWith("##") AND ListLen(line, "=") EQ 2 >
+				<cfset resourceMap[ListFirst(line, "=")] = ListGetAt(line, 2, "=") />
+			</cfif>
+		</cfloop>
+
+		<!--- Explode value of the resouce into structs if we have value keys --->
+		<cfif StructKeyExists(arguments, "expandValueKeys")>
+			<cfset valueKeys = ListToArray(arguments.expandValueKeys) />
+
+			<cfloop collection="#resourceMap#" item="key">
+				<cfset values = ListToArray(resourceMap[key], arguments.expandValueKeyDelimiters)  />
+
+				<cfset temp = StructNew() />
+
+				<cfloop from="1" to="#ArrayLen(valueKeys)#" index="i">
+				<!--- The values may not be of equal length to the number of value keys so check --->
+					<cfif i LTE ArrayLen(values)>
+						<cfset temp[valueKeys[i]] = values[i] />
+					<cfelse>
+						<cfset temp[valueKeys[i]] = "" />
+					</cfif>
+				</cfloop>
+
+				<!--- Replace the value of the resource key with the exploded struct --->
+				<cfset resourceMap[key] = temp />
+			</cfloop>
+		</cfif>
+
+		<cfreturn resourceMap />
+	</cffunction>
+
 	<cffunction name="createThreadingAdapter" access="public" returntype="MachII.util.threading.ThreadingAdapter" output="false"
 		hint="Creates a threading adapter if the CFML engine has threading capabilities.">
 
-		<cfset var threadingAdapter = "" />
-		<cfset var serverName = server.coldfusion.productname />
-		<cfset var serverMajorVersion = ListFirst(server.coldfusion.productversion, ",") />
-		<cfset var serverMinorVersion = 0 />
 		<cfset var threadingAvailable = false />
+		<cfset var engineInfo = "" />
 
-		<!--- Make sure we have a minor product version--Open BlueDragon doesn't have one on its initial release
-				but this will be added; however, probably not wise to always assume it's there. Set a
-				default of 0 in case it doesn't exist. --->
-		<cfif ListLen(server.coldfusion.productversion, ",") gt 1>
-			<cfset serverMinorVersion = ListGetAt(server.coldfusion.productversion, 2, ",") />
+		<!--- Short-circuit and use the cache version if already loaded --->
+		<cfif NOT IsObject(variables.threadingAdapter)>
+			<cfset engineInfo = getCfmlEngineInfo() />
+
+			<!--- Adobe ColdFusion 8+ --->
+			<cfif FindNoCase("ColdFusion", engineInfo.Name) AND engineInfo.majorVersion GTE 8>
+				<cfset variables.threadingAdapter = CreateObject("component", "MachII.util.threading.ThreadingAdapterCF").init() />
+			<!--- OpenBD 1.3+ (BlueDragon 7+ threading engine is not currently compatible) --->
+			<cfelseif FindNoCase("BlueDragon", engineInfo.Name) AND  engineInfo.productLevel EQ "GPL" AND ((engineInfo.majorVersion EQ 1 AND engineInfo.minorVersion GTE 3) OR engineInfo.majorVersion GTE 2)>
+				<cfset variables.threadingAdapter = CreateObject("component", "MachII.util.threading.ThreadingAdapterBD").init() />
+			<!--- Railo 3 --->
+			<cfelseif FindNoCase("Railo", engineInfo.Name) AND engineInfo.majorVersion GTE 3>
+				<cfset variables.threadingAdapter = CreateObject("component", "MachII.util.threading.ThreadingAdapterRA").init() />
+			</cfif>
+
+			<!--- Test for threading availability --->
+			<cfif IsObject(threadingAdapter)>
+				<cfset threadingAvailable = threadingAdapter.testIfThreadingAvailable() />
+			</cfif>
+
+			<!---
+				Default theading adapter used to check if threading is implemented on this engine or
+				threading is disabled on target system due to security sandbox
+			--->
+			<cfif NOT IsObject(variables.threadingAdapter) OR NOT threadingAvailable>
+				<cfset variables.threadingAdapter = CreateObject("component", "MachII.util.threading.ThreadingAdapter").init() />
+			</cfif>
 		</cfif>
+
+		<cfreturn variables.threadingAdapter />
+	</cffunction>
+
+	<cffunction name="createAdminApiAdapter" access="public" returntype="MachII.util.cfmlEngine.AdminApiAdapter" output="false"
+		hint="Creates an admin api adapter for the CFML engine.">
+
+		<cfset var adminApiAdapter = "" />
+		<cfset var engineInfo = getCfmlEngineInfo() />
 
 		<!--- Adobe ColdFusion 8+ --->
-		<cfif FindNoCase("ColdFusion", serverName) AND serverMajorVersion GTE 8>
-			<cfset threadingAdapter = CreateObject("component", "MachII.util.threading.ThreadingAdapterCF").init() />
-		<!--- Open / NewAtlanta BlueDragon 7+ threading engine is not currently compatible,
-			however will be compatiable in future versions
-		<cfelseif FindNoCase("BlueDragon", serverName) AND serverMajorVersion GTE 7>
-			<cfset threadingAdapter = CreateObject("component", "MachII.util.threading.ThreadingAdapterBD").init() />
-		 --->
-		<!--- Railo 3.0 will introduce a threading engine
-		<cfelseif FindNoCase("Railo", serverName) AND serverMajorVersion GTE 3>
-			<cfset threadingAdapter = CreateObject("component", "MachII.util.threading.ThreadingAdapterRA").init() />
-		 --->
+		<cfif FindNoCase("ColdFusion", engineInfo.Name) AND engineInfo.majorVersion GTE 8>
+			<cfset adminApiAdapter = CreateObject("component", "MachII.util.cfmlEngine.AdminApiAdapterCF").init() />
+		<!--- OpenBD 1.3+ (BlueDragon 7+ admin API is not currently implemented) --->
+		<cfelseif FindNoCase("BlueDragon", engineInfo.Name) AND  engineInfo.productLevel EQ "GPL" AND engineInfo.majorVersion GTE 1 AND engineInfo.minorVersion GTE 3>
+			<cfset adminApiAdapter = CreateObject("component", "MachII.util.cfmlEngine.AdminApiAdapterBD").init() />
+		<!--- Railo 3
+		<cfelseif FindNoCase("Railo", engineInfo.Name) AND engineInfo.majorVersion GTE 3>
+			<cfset adminApiAdapter = CreateObject("component", "MachII.util.cfmlEngine.AdminApiAdapterRA").init() /> --->
 		</cfif>
 
-		<!--- Test for threading availability --->
-		<cfif IsObject(threadingAdapter)>
-			<cfset threadingAvailable = threadingAdapter.testIfThreadingAvailable() />
+		<!--- Test for admin api availability --->
+		<cfif NOT IsObject(adminApiAdapter)>
+			<cfthrow type="MachII.utils.NoAdminApiAdapterAvailable"
+				message="Cannot create an admin API adapter for the target system. No compatible adapter available."
+				detail="Engine Name: '#engineInfo.Name#', Major Version: '#engineInfo.majorVersion#', Minor Version: '#engineInfo.minorVersion#', Product Level: '#engineInfo.productLevel#'" />
 		</cfif>
+
+		<cfreturn adminApiAdapter />
+	</cffunction>
+
+	<cffunction name="getCfmlEngineInfo" access="public" returntype="struct" output="false"
+		hint="Gets normalized information of the CFML engine. Keys: 'name', 'majorVersion', 'minorVersion' and 'productLevel'.">
+
+		<cfset var rawProductVersion = server.coldfusion.productversion />
+		<cfset var minorVersionRegex = 0 />
+		<cfset var result = StructNew() />
+
+		<cfset result.name = server.coldfusion.productname />
+		<cfset result.majorVersion = 0 />
+		<cfset result.minorVersion = 0 />
+		<cfset result.fullVersion = rawProductVersion />
+		<cfset result.productLevel = server.coldfusion.productlevel />
+		<cfset result.appServer = server.coldfusion.appServer />
 
 		<!---
-			Default theading adapter used to check if threading is implemented on this engine or
-			threading is disabled on target system due to security sandbox
+			Railo puts a "fake" version number (e.g. 8,0,0,1) in product version number so we need
+			to get the real version number of Railo which
 		--->
-		<cfif NOT IsObject(threadingAdapter) OR NOT threadingAvailable>
-			<cfset threadingAdapter = CreateObject("component", "MachII.util.threading.ThreadingAdapter").init() />
+		<cfif FindNoCase("Railo", result.name)>
+			<cfset rawProductVersion = server.railo.version />
 		</cfif>
 
-		<cfreturn threadingAdapter />
+		<!--- OpenBD and Railo use "." while CF uses "," as the delimiter for the product version so convert it for consistency --->
+		<cfset rawProductVersion = ListChangeDelims(rawProductVersion, ".", ",") />
+
+		<!--- Get major product version --->
+		<cfset result.majorVersion = ListFirst(rawProductVersion, ".") />
+
+		<!---
+			Make sure we have a minor product version--Open BlueDragon doesn't have one on its initial release
+			but this will be added; however, probably not wise to always assume it's there. Set a
+			default of 0 in case it doesn't exist.
+		--->
+		<cfif ListLen(rawProductVersion, ".") GT 1>
+			<cfset result.minorVersion = ListGetAt(rawProductVersion, 2, ".") />
+
+			<cfset minorVersionRegex = REFindNoCase("[[:alpha:]]", result.minorVersion) />
+
+			<!--- Remove any trailing sub-number like 1.4a in OpenBD --->
+			<cfif minorVersionRegex GT 0>
+				<cfset result.minorVersion = Mid(result.minorVersion, 1, minorVersionRegex) />
+			</cfif>
+		</cfif>
+
+		<cfreturn result />
 	</cffunction>
 
 	<cffunction name="assertSame" access="public" returntype="boolean" output="false"
@@ -243,7 +360,7 @@ Notes:
 	</cffunction>
 
 	<cffunction name="trimList" access="public" returntype="string" output="false"
-		hint="Trims each list item using Trim() and returns a cleaned list.">
+		hint="Trims each list item using Trim() and returns a cleaned list using CFML code.">
 		<cfargument name="list" type="string" required="true"
 			hint="List to trim each item." />
 		<cfargument name="delimiters" type="string" required="false" default=","
@@ -257,6 +374,15 @@ Notes:
 		</cfloop>
 
 		<cfreturn trimmedList />
+	</cffunction>
+
+	<cffunction name="trimList_native" access="public" returntype="string" output="false"
+		hint="Trims each list item and returns a cleaned list using the native ListItemTrim() BIF if available on this engine.">
+		<cfargument name="list" type="string" required="true"
+			hint="List to trim each item." />
+		<cfargument name="delimiters" type="string" required="false" default=","
+			hint="The delimiters of the list. Defaults to ',' when not defined." />
+		<cfreturn ListItemTrim(arguments.list, arguments.delimiters) />
 	</cffunction>
 
 	<cffunction name="parseAttributesIntoStruct" access="public" returntype="struct" output="false"
@@ -394,6 +520,31 @@ Notes:
 		<cfreturn ReplaceList(REReplaceNoCase(arguments.input, "&(?!([a-zA-Z][a-zA-Z0-9]*|(##\d+)){2,6};)", "&amp;", "all"), '<,>,"', "&lt;,&gt;,&quot;") />
 	</cffunction>
 
+	<cffunction name="escapeHtml_native" access="public" returntype="string" output="false"
+		hint="Escapes special characters '<', '>', '""' and '&' with the native HtmlEditFormat() - only use on CFML engines where the double encoding issue has been fixed.">
+		<cfargument name="input" type="string" required="true"
+			hint="String to escape." />
+		<cfreturn HtmlEditFormat(arguments.input) />
+	</cffunction>
+
+	<cffunction name="getFileInfo_cfdirectory" access="public" returntype="any" output="false"
+		hint="Mocks the getFileInfo() BIF for CFML engines that don't already support it.">
+		<cfargument name="path" type="string" required="true" />
+
+		<cfset var fileInfo = "" />
+
+		<cfdirectory action="LIST" directory="#GetDirectoryFromPath(arguments.path)#"
+			name="fileInfo" filter="#GetFileFromPath(arguments.path)#" />
+
+		<cfset QueryAddColumn(fileInfo, "lastModified", "varchar", ArrayNew(1)) />
+
+		<cfif fileInfo.recordcount EQ 1>
+			<cfset fileInfo.lastModified[1] = fileInfo.dateLastModified[1] />
+		</cfif>
+
+		<cfreturn fileInfo />
+	</cffunction>
+
 	<cffunction name="translateExceptionType" access="public" returntype="string" output="false"
 		hint="Translations exception types into something that can be rethrown.">
 		<cfargument name="type" type="string" required="true"
@@ -497,6 +648,149 @@ Notes:
 		<cfelse>
 			<cfreturn "" />
 		</cfif>
+	</cffunction>
+
+	<cffunction name="getMimeTypeByFileExtension" access="public" returntype="string" output="false"
+		hint="Gets a MIME type(s) by file extension(s). Ignores any values that do not start with a '.' unless instructed.">
+		<cfargument name="input" type="any" required="true"
+			hint="A list or array of file extensions.  Ignores any values that do not start with a '.' as a concrete MIME type which allows for mixed input of extensions and MIME types." />
+		<cfargument name="customMimeTypes" type="struct" required="false"
+			hint="Custom mime-type map (key=file extension, value=mime-type). Keys that conflict with the base mime-type map will be overridden." />
+		<cfargument name="evaluateAllAsFileExtensions" type="boolean" required="false" default="false"
+			hint="Allows you to evaluate a list as file extensions whether or not they start with '.'." />
+
+		<cfset var output = "" />
+		<cfset var mimeTypes= StructNew() />
+		<cfset var i = 0 />
+
+		<cfif NOT IsArray(arguments.input)>
+			<cfset arguments.input = ListToArray(trimList(arguments.input)) />
+		</cfif>
+
+		<!--- Use StructAppend to not pollute base mime-type map via references when "mixing" custom mime types --->
+		<cfif StructKeyExists(arguments, "customMimeTypes")>
+			<cfset StructAppend(mimeTypes, variables.mimeTypeMap) />
+			<cfset StructAppend(mimeTypes, arguments.customMimeTypes) />
+		<cfelse>
+			<cfset mimeTypes = variables.mimeTypeMap />
+		</cfif>
+
+		<cftry>
+			<cfloop from="1" to="#ArrayLen(arguments.input)#" index="i">
+				<cfif arguments.input[i].startsWith(".")>
+					<cfset output = ListAppend(output, StructFind(mimeTypes, Right(arguments.input[i], Len(arguments.input[i]) -1))) />
+				<cfelseif arguments.evaluateAllAsFileExtensions AND NOT arguments.input[i].startsWith(".")>
+					<cfset output = ListAppend(output, StructFind(mimeTypes, arguments.input[i])) />
+				<cfelseif NOT evaluateAllAsFileExtensions>
+					<cfset output = ListAppend(output, arguments.input[i]) />
+				</cfif>
+			</cfloop>
+			<cfcatch type="any">
+				<cfthrow
+					type="MachII.framework.InvalidFileExtensionType"
+					message="The 'getMimeTypeByFileExtension' method cannot find a valid MIME type conversion for a file extension of '#arguments.input[i]#' in the input '#arguments.input.toString()#'." />
+			</cfcatch>
+		</cftry>
+
+		<cfreturn output />
+	</cffunction>
+
+	<cffunction name="getMimeTypeMap" access="public" returntype="struct" output="false"
+		hint="Returns the base mimeTypeMap for ad-hoc utility use.">
+		<cfreturn variables.mimeTypeMap />
+	</cffunction>
+
+	<cffunction name="cleanPathInfo" access="public" returntype="string" output="false"
+		hint="Cleans the path info to an usable string including UrlDecode().">
+		<cfargument name="pathInfo" type="string" required="true"
+			hint="The path info to use usually the value from 'cgi.PATH_INFO'." />
+		<cfargument name="scriptName" type="string" required="true"
+			hint="The script name to use usually the value from 'cgi.SCRIPT_NAME'. This is required to fix IIS6 goofiness with path info." />
+		<cfargument name="urlDecode" type="boolean" required="false" default="true"
+			hint="Decides if the path info should be Url decoded. Defaults to true." />
+
+		<cfset var cleanPathInfo = arguments.pathInfo />
+
+		<!--- Remove script name from the path info since IIS6 breaks the RFC specification by prepending the script name --->
+		<cfif Len(arguments.scriptName) AND cleanPathInfo.toLowerCase().startsWith(arguments.scriptName.toLowerCase())>
+			<cfset cleanPathInfo = ReplaceNoCase(cleanPathInfo, arguments.scriptName, "", "one") />
+		</cfif>
+
+		<cfif arguments.urlDecode>
+			<cfreturn UrlDecode(cleanPathInfo) />
+		<cfelse>
+			<cfreturn cleanPathInfo />
+		</cfif>
+	</cffunction>
+
+	<cffunction name="createDatetimeFromHttpTimeString" access="public" returntype="date" output="false"
+		hint="Creates an UTC datetime from an HTTP time string.">
+		<cfargument name="httpTimeString" type="string" required="true"
+			hint="An HTTP time string in the format of '11 Aug 2010 17:58:48 GMT'." />
+
+		<cfset var rawArray = ListToArray(ListLast(arguments.httpTimeString, ","), " ") />
+		<cfset var rawTimePart = ListToArray(rawArray[4], ":") />
+
+		<cfreturn CreateDatetime(rawArray[3], DateFormat("#rawArray[2]#/1/2000", "m"), rawArray[1], rawTimePart[1], rawTimePart[2], rawTimePart[3]) />
+	</cffunction>
+
+	<cffunction name="convertTimespanStringToSeconds" access="public" returntype="numeric" output="false"
+		hint="Converts a timespan string (e.g. 0,0,0,0) into seconds.">
+		<cfargument name="timespanString" type="string" required="true"
+			hint="The input timespan string." />
+
+		<cfset var timespan = CreateTimespan(ListGetAt(arguments.timespanString, 1), ListGetAt(arguments.timespanString, 2), ListGetAt(arguments.timespanString, 3), ListGetAt(arguments.timespanString, 4)) />
+
+		<cfreturn Round((timespan * 60) / 0.000694444444444) />
+	</cffunction>
+
+	<cffunction name="filePathClean" access="public" returntype="string" output="false"
+		hint="Clean the file path for directory transversal type attacks.">
+		<cfargument name="filePath" type="string" required="true"
+			hint="The 'dirty' file path to be cleaned."/>
+
+		<cfset var fileParts = "" />
+		<cfset var cleanedFilePath = "" />
+		<cfset var i = 0 />
+		<cfset var isUNC = false />
+
+		<!--- Check if UNC path --->
+		<cfif arguments.filePath.startsWith("\\")>
+			<cfset isUNC = true />
+		</cfif>
+
+		<!---
+		Convert any "\" to  "/" which will work on any OS which allows us to not worry
+		about "./", "../", ".\" and "..\" types
+		--->
+		<cfset arguments.filePath = ReplaceNoCase(arguments.filePath, "\", "/") />
+
+		<!--- Explode the file path into part --->
+		<cfset fileParts = ListToArray(arguments.filePath, "/") />
+
+		<!---
+		Work through the file parts in reverse in case we have to delete empty parts
+		(such as /path/to//file.txt where // ends up being an empty array element) or
+		directory transversal indicators such as "." or ".."
+		--->
+		<cfloop from="#ArrayLen(fileParts)#" to="1" index="i" step="-1">
+			<!--- Strip any empty file parts or file parts that are all dots --->
+			<cfif NOT Len(fileParts[i]) OR REFindNocase(fileParts[i], "^\.{1,}$")>
+				<cfset ArrayDeleteAt(fileParts, i) />
+			</cfif>
+		</cfloop>
+
+		<!--- Reinsert UNC if that was the in the original path --->
+		<cfif isUNC>
+			<cfset cleanedFilePath = "\\" & ArrayToList(fileParts, "/") />
+		<!--- Reinsert the initial slash if in the original path --->
+		<cfelseif arguments.filePath.startsWith("/")>
+			<cfset cleanedFilePath = "/" & ArrayToList(fileParts, "/") />
+		<cfelse>
+			<cfset cleanedFilePath = ArrayToList(fileParts, "/") />
+		</cfif>
+
+		<cfreturn cleanedFilePath />
 	</cffunction>
 
 </cfcomponent>

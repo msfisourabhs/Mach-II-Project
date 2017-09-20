@@ -20,7 +20,6 @@
     making a combined work based on this library.  Thus, the terms and
     conditions of the GNU General Public License cover the whole
     combination.
-
 	As a special exception, the copyright holders of this library give you
 	permission to link this library with independent modules to produce an
 	executable, regardless of the license terms of these independent
@@ -41,7 +40,7 @@
 	interfaces).
 
 Author: Ben Edwards (ben@ben-edwards.com)
-$Id: FilterCommand.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.0.0
 Updated version: 1.8.0
@@ -68,9 +67,11 @@ Notes:
 		hint="Used by the framework for initialization.">
 		<cfargument name="filterProxy" type="MachII.framework.BaseProxy" required="true" />
 		<cfargument name="paramArgs" type="struct" required="false" default="#StructNew()#" />
+		<cfargument name="parseRuntimeParameters" type="boolean" required="false" default="false" />
 
 		<cfset setFilterProxy(arguments.filterProxy) />
 		<cfset setParamArgs(arguments.paramArgs) />
+		<cfset setParseRuntimeParameters(arguments.parseRuntimeParameters) />
 
 		<cfreturn this />
 	</cffunction>
@@ -88,15 +89,28 @@ Notes:
 		<cfset var log = filter.getLog() />
 		<cfset var paramArgs = getParamArgs() />
 
-		<cfif log.isDebugEnabled()>
-			<cfif StructCount(paramArgs)>
-				<cfset log.debug("Filter '#filter.getComponentNameForLogging()#' beginning execution with runtime paramArgs.", paramArgs) />
-			<cfelse>
-				<cfset log.debug("Filter '#filter.getComponentNameForLogging()#' beginning execution with no runtime paramArgs.") />
+		<cfif StructCount(paramArgs)>
+			<!--- Resolve runtime parameters for M2EL syntax if defined --->
+			<cfif getParseRuntimeParameters()>
+				<cftry>
+					<cfset paramArgs = resolveExpressions(paramArgs, arguments.event, arguments.eventContext) />
+					<cfcatch type="any">
+						<cfif log.isErrorEnabled()>
+							<cfset log.error("Event-filter '#filter.getComponentNameForLogging()#' has caused an exception. Unable to properly resolve the runtime parameters for M2EL syntax."
+									& filter.getUtils().buildMessageFromCfCatch(cfcatch, getMetadata(filter).path)
+									, cfcatch) />
+						</cfif>
+						<cfrethrow />
+					</cfcatch>				
+				</cftry>
 			</cfif>
+
+			<cfset log.debug("Filter '#filter.getComponentNameForLogging()#' beginning execution with runtime paramArgs. (Parsed for M2EL: '#getParseRuntimeParameters()#')", paramArgs) />
+		<cfelse>
+			<cfset log.debug("Filter '#filter.getComponentNameForLogging()#' beginning execution with no runtime paramArgs.") />
 		</cfif>
 
-		<cftry>
+		<cftry>			
 			<cfsetting enablecfoutputonly="false" /><cfinvoke component="#filter#" method="filterEvent" returnVariable="continue">
 				<cfinvokeargument name="event" value="#arguments.event#" />
 				<cfinvokeargument name="eventContext" value="#arguments.eventContext#" />
@@ -104,7 +118,7 @@ Notes:
 			</cfinvoke><cfsetting enablecfoutputonly="true" />
 			<cfcatch type="any">
 				<cfif log.isErrorEnabled()>
-					<cfset log.error("Event-filter '#filter.getComponentNameForLogging()#' has caused an exception. "
+					<cfset log.error("Event-filter '#filter.getComponentNameForLogging()#' has caused an exception."
 							& filter.getUtils().buildMessageFromCfCatch(cfcatch, getMetadata(filter).path)
 							, cfcatch) />
 				</cfif>
@@ -112,7 +126,7 @@ Notes:
 			</cfcatch>
 		</cftry>
 
-		<cfif NOT continue AND log.isInfoEnabled()>
+		<cfif NOT continue>
 			<cfset log.info("Filter '#filter.getComponentNameForLogging()# has changed the flow of this event.") />
 		</cfif>
 
@@ -136,6 +150,16 @@ Notes:
 	</cffunction>
 	<cffunction name="getParamArgs" access="private" returntype="struct" output="false">
 		<cfreturn variables.paramArgs />
+	</cffunction>
+	
+	<cffunction name="setParseRuntimeParameters" access="private" returntype="void" output="false"
+		hint="Sets if the runtime parameters should be parsed because it contains M2EL syntax.">
+		<cfargument name="parseRuntimeParameters" type="boolean" required="true" />
+		<cfset variables.parseRuntimeParameters = arguments.parseRuntimeParameters />
+	</cffunction>
+	<cffunction name="getParseRuntimeParameters" access="private" returntype="boolean" output="false"
+		hint="Gets if the runtime parameters should be parsed because it contains M2EL syntax.">
+		<cfreturn variables.parseRuntimeParameters />
 	</cffunction>
 
 </cfcomponent>

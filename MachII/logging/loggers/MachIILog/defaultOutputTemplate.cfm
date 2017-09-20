@@ -42,7 +42,7 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: defaultOutputTemplate.cfm 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.6.0
 Updated version: 1.8.0
@@ -70,7 +70,7 @@ automatically put your CSS in the head section via <cfhtmlhead />
 </cfsilent>
 <cfoutput>
 <cfsavecontent variable="local.headElement">
-<view:style outputType="inline">
+<style type="text/css">
 	##MachIIRequestLogDisplay {
 		color: ##000;
 		background-color: ##FFF;
@@ -144,7 +144,7 @@ automatically put your CSS in the head section via <cfhtmlhead />
 	##MachIIRequestLogDisplay .strong {
 		font-weight: bold;
 	}
-</view:style>
+</style>
 </cfsavecontent>
 <div id="MachIIRequestLogDisplay">
 	<table>

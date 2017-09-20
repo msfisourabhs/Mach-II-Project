@@ -41,7 +41,7 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: ThreadingAdapterCF.cfc 2226 2010-06-04 23:40:32Z peterjfarrell $
+$Id$
 
 Created version: 1.6.0
 Updated version: 1.6.0

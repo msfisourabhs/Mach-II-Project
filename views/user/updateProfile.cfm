@@ -12,30 +12,31 @@
 				<label class="form-header"><strong>Edit-Profile</strong> </label><br><br>
 				<hr width="auto" style="border:1px solid black;"><br>
 				<div class="edit-info-1" style="display:inline-block;float:left;width:50%">
+			<cfoutput>
 			<div class="input-group">
 		      <span class="input-group-addon"><i class="glyphicon glyphicon-user"></i></span>
-		      <input id="name" type="text" class="form-control required" name="name" placeholder="Name">
+		      <input id="name" type="text" class="form-control required" name="name" placeholder="Name" value="#event.getArg("User").getName()#">
 		    </div>
 		    
 			<div class="input-group">
 		      <span class="input-group-addon"><i class="glyphicon glyphicon-envelope"></i></span>
-		      <input id="email" type="text" class="form-control required" name="email" placeholder="Email">
+		      <input id="email" type="text" class="form-control required" name="email" placeholder="Email" value="#event.getArg("User").getEmail()#">
 		    </div>
 			<div class="input-group">
 		      <span class="input-group-addon"><i class="glyphicon glyphicon-phone"></i></span>
-		      <input id="phone" type="text" class="form-control required" name="phone" placeholder="Phone Number">
+		      <input id="phone" type="text" class="form-control required" name="phone" placeholder="Phone Number" value="#event.getArg("User").getPhone()#">
 		    </div>
 		    <div class="input-group">
 		      <span class="input-group-addon"><i class="glyphicon glyphicon-map-marker"></i></span>
-		      <input id="city" type="text" class="form-control required" name="city" placeholder="City">
+		      <input id="city" type="text" class="form-control required" name="city" placeholder="City" value="#event.getArg("User").getCity()#">
 		    </div>
 		    <div class="input-group">
 		      <span class="input-group-addon"><i class="glyphicon glyphicon-map-marker"></i></span>
-		      <input id="country" type="text" class="form-control required" name="country" placeholder="Country">
+		      <input id="country" type="text" class="form-control required" name="country" placeholder="Country" value="#event.getArg("User").getCountry()#">
 		    </div>
 		    <div class="input-group">
 		      <span class="input-group-addon"><i class="glyphicon glyphicon-user"></i></span>
-		      <input id="username" type="text" class="form-control required" name="username" placeholder="Username">
+		      <input id="username" type="text" class="form-control required" name="username" placeholder="Username" value="#event.getArg("User").getUsername()#">
 		    </div>
 		    <div class="input-group">
 		      <span class="input-group-addon"><i class="glyphicon glyphicon-lock"></i></span>
@@ -46,16 +47,10 @@
 			<div class="edit-info-2" style="display:inline-block;float:right">
 				<div class="form-group">
 	  				<label for="comment">About:</label>
-	  					<textarea class="form-control" rows="10" cols="40" id="about" name="about"></textarea>
+	  					<textarea class="form-control" rows="10" cols="40" id="about" name="about" >#event.getArg("User").getAbout()#</textarea>
 				</div>
 			</div
-				<!---
-			<div class="edit-info-2" style="display:inline-block;float:right">
-				<label class="form-label">About</label><br>
-					<textarea rows="21" cols="40" name="about"></textarea>
-				</div>
-			</div>
-			--->
+			</cfoutput>	
 			<div >
 				<button style="display:inline-block;" type="Submit" class="btn btn-primary btn-block"><label >Save</label></button>
 			</div>	

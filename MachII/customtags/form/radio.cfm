@@ -42,7 +42,7 @@
 	interfaces).
 
 Author: Peter J. Farrell (peter@mach-ii.com)
-$Id: radio.cfm 2261 2010-07-29 05:31:05Z peterjfarrell $
+$Id$
 
 Created version: 1.8.0
 Updated version: 1.8.0

@@ -41,7 +41,7 @@
 	interfaces).
 
 Author: Peter J. Farrell(peter@mach-ii.com)
-$Id: CacheStatsTest.cfc 2206 2010-04-27 07:41:16Z peterfarrell $
+$Id$
 
 Created version: 1.8.0
 Updated version: 1.8.0
@@ -63,7 +63,7 @@ Notes:
 	--->
 	<cffunction name="setup" access="public" returntype="void" output="false"
 		hint="Logic to run to setup before each test case method.">
-		<cfset variables.cacheStats = CreateObject("component", "MachII.caching.CacheStats").init() />
+		<cfset variables.cacheStats = CreateObject("component", "MachII.caching.CacheStatsJava").init() />
 	</cffunction>
 
 	<cffunction name="tearDown" access="public" returntype="void" output="false"

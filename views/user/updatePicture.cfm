@@ -14,7 +14,7 @@
 		    
 				<cfoutput>
 					<input type="file" name="userpicture" >
-					<input type="hidden" id="fileIdentifier" name="fileIdentifier" value="#SESSION.User.getProfilePicture().getPid()#_">
+					<input type="hidden" id="fileIdentifier" name="fileIdentifier" value="#event.getArg("User").getProfilePicture().getPid()#_">
 				</cfoutput>
 			</div>
 			<button type="submit" class="btn btn-primary btn-block"><label class="uploadbttn">Upload</label></button>
